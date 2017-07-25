@@ -7,8 +7,8 @@ real :: dtrad4(dx,dy), dtrad5(dx,dy), dtrad6(dx,dy)
 real :: final_dtrad(dx,dy)
 character(len=4) :: arg1, arg3
 character(len=3) :: arg2
-character(len=255) :: arg4
-character (len=:), allocatable :: basedir
+character(len=255) :: arg4, basedir
+!character (len=:), allocatable :: basedir
 integer :: iyear, iday
 integer :: yyyyddd
 
