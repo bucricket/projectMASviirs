@@ -7,8 +7,8 @@ character(len=7) :: yyyyddd
 character(len=4) :: arg4, arg2, tile_num
 integer :: time, year
 integer :: switch
-character (len=:), allocatable :: basedir
-character(len=255) :: iptfile, jptfile, arg5, outfile, arg6
+!character (len=:), allocatable :: basedir
+character(len=255) :: iptfile, jptfile, arg5, outfile, arg6, basedir
 character(len=255) :: tprof, qprof, tsfcfile, presfile, qsfcfile
 integer :: tindex
 character(len=255) :: ifile
