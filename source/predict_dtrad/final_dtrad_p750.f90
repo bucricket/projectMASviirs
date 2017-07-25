@@ -5,6 +5,8 @@ real :: latn(dx,dy), dtrad(dx,dy), day(dx,dy), night(dx,dy)
 real :: dtime(dx,dy), lai(dx,dy), terrain(dx,dy)
 character(len=4) :: arg1,arg3
 character(len=3) :: arg2
+character(len=255) :: arg4, basedir
+!character (len=:), allocatable :: basedir
 integer :: year, doy, yyyyddd, riseddd
 character(len=255) :: ifile1, ifile2, ifile3, ifile4, ifile5, ifile6, ofile1
 real :: predict(dx,dy)
@@ -15,9 +17,11 @@ integer :: laiddd, nweek1, cday, offset, rday
 call getarg(1,arg1)
 call getarg(2,arg2)
 call getarg(3,arg3)
+call getarg(4,arg4)
 read(arg1,'(i4)') year
 read(arg2,'(i3)') doy
 yyyyddd=year*1000+doy
+basedir=trim(arg4)
 
 nweek1=(doy-1)/7.
 cday=nweek1*7.

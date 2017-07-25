@@ -5,8 +5,8 @@ real :: latn(dx,dy), dtrad(dx,dy), day(dx,dy), night(dx,dy)
 real :: dtime(dx,dy), lai(dx,dy), terrain(dx,dy)
 character(len=4) :: arg1,arg3
 character(len=3) :: arg2
-character(len=255) :: arg4
-character (len=:), allocatable :: basedir
+character(len=255) :: arg4, basedir
+!character (len=:), allocatable :: basedir
 integer :: year, doy, yyyyddd, riseddd
 character(len=255) :: ifile1, ifile2, ifile3, ifile4, ifile5, ifile6, ofile1
 real :: predict(dx,dy)

@@ -88,8 +88,8 @@ setup(
     author="Mitchell Schull",
     author_email="mitch.schull@noaa.gov",
     url="https://github.com/bucricket/projectMASviirs.git",
-    py_modules=['processviirs'],
-    #packages= ['processlai'],
+#    py_modules=['processviirs'],
+    packages= ['processviirs'],
     platforms='Posix; MacOS X; Windows',
     license='BSD 3-Clause',
     classifiers=[
