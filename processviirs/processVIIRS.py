@@ -16,6 +16,7 @@ import datetime
 import gzip
 import shutil
 from osgeo import gdal,osr
+import argparse
 
 def folders(base):
     data_path = os.path.abspath(os.path.join(base,os.pardir,'VIIRS_DATA'))
