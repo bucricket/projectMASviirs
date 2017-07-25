@@ -1,9 +1,9 @@
 program calc_offset_correction
-character (len=*), allocatable :: basedir
+!character (len=*), allocatable :: basedir
 character(len=4) :: tile_num
 integer, parameter :: dx=3750, dy=3750
 character(len=255) :: dayfile, nightfile, dtimefile, ntimefile
-character(len=255) :: avgfile, dztimefile, nztimefile, arg4
+character(len=255) :: avgfile, dztimefile, nztimefile, arg4, basedir
 character(len=4) :: arg1, arg3
 character(len=3) :: arg2
 integer :: iyear, iday, time
