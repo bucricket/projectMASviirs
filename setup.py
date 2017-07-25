@@ -15,7 +15,7 @@ except ImportError:
     from distutils.core import setup
     setup_kwargs = {'scripts': ['bin/processviirs']}
     
-from processlai import __version__
+from processviirs import __version__
 
 #=====build DMS binaries===============================
 # get Anaconda root location
