@@ -1,0 +1,41 @@
+#!python
+
+import os
+import platform
+import subprocess
+
+AddOption('--prefix',
+          dest='prefix',
+          type='string',
+          nargs=1,
+          action='store',
+          metavar='DIR',
+          help='installation prefix')
+env = Environment(PREFIX = GetOption('prefix'))
+prefix  = os.environ.get('PREFIX')
+base1 = os.path.abspath(os.path.join(prefix,os.pardir))
+base = os.path.join(base1,'work')
+sourcePath = os.path.join(base,'source')
+binPath = os.path.join(prefix,'bin')
+
+# Comment lines start with the # symbol
+# The following sets up an Compile Environment Object with gfortran as the linker.
+env = Environment(LINK='gfortran')
+env.Append(F90FLAGS = ['-ffree-line-length-512'])
+# The next line of code is an array of the source files names used in the program.
+# The next line is the actual code that links the executable. env.Program is generates an executable.
+
+final_dtrad_p250_fmax0 = env.Program(target='final_dtrad_p250_fmax0', source= 'final_dtrad_p250_fmax0.f90')
+final_dtrad_p250_fmax20 = env.Program(target='final_dtrad_p250_fmax20', source= 'final_dtrad_p250_fmax20.f90')
+final_dtrad_p500 = env.Program(target='final_dtrad_p500', source= 'final_dtrad_p500.f90')
+final_dtrad_p750 = env.Program(target='final_dtrad_p750', source= 'final_dtrad_p750.f90')
+final_dtrad_p1000 = env.Program(target='final_dtrad_p1000', source= 'final_dtrad_p1000.f90')
+final_dtrad_p2000 = env.Program(target='final_dtrad_p2000', source= 'final_dtrad_p2000.f90')
+merge = env.Program(target='merge', source= 'merge.f90')
+calc_predicted_trad2 = env.Program(target='calc_predicted_trad2', source= 'calc_predicted_trad2.f90')
+
+env.Install(binPath, [final_dtrad_p250_fmax0,final_dtrad_p250_fmax20,
+                      final_dtrad_p500,final_dtrad_p750,final_dtrad_p1000,
+                      final_dtrad_p2000,merge,calc_predicted_trad2])
+env.Alias('install', binPath)
+

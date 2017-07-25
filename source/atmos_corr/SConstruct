@@ -1,0 +1,32 @@
+#!python
+
+import os
+import platform
+import subprocess
+
+AddOption('--prefix',
+          dest='prefix',
+          type='string',
+          nargs=1,
+          action='store',
+          metavar='DIR',
+          help='installation prefix')
+env = Environment(PREFIX = GetOption('prefix'))
+prefix  = os.environ.get('PREFIX')
+base1 = os.path.abspath(os.path.join(prefix,os.pardir))
+base = os.path.join(base1,'work')
+sourcePath = os.path.join(base,'source')
+binPath = os.path.join(prefix,'bin')
+
+# Comment lines start with the # symbol
+# The following sets up an Compile Environment Object with gfortran as the linker.
+env = Environment(LINK='gfortran')
+# The next line of code is an array of the source files names used in the program.
+# The next line is the actual code that links the executable. env.Program is generates an executable.
+
+run_correction = env.Program(target='run_correction', source= ['wndo.f','corr_arrays.f90', 'corr_parms.f90','main.f90'])
+calc_offset_correction = env.Program(target='calc_offset_correction', source= ['calc_offset_correction.f90'])
+
+env.Install(binPath, [run_correction,calc_offset_correction])
+env.Alias('install', binPath)
+
