@@ -15,8 +15,8 @@ character(len=255) :: risefile, rise2file
 character(len=255) :: snowfile, viewfile, dtradfile, laifile, fmaxfile, modelfile, dayfile 
 character(len=15) :: cmd, zip
 character(len=255) :: dir, cmd1, cmd2, cmd3, cmd4, omd1, omd2, omd3, omd4, omd5
-character(len=255) :: arg4
-character (len=:), allocatable :: basedir
+character(len=255) :: arg4, basedir
+!character (len=:), allocatable :: basedir
 integer :: yyyyddd
 integer :: rise
 integer :: riseddd
