@@ -410,14 +410,15 @@ def Apply_mask(tile,year,doy):
             i5_data = os.path.join(agg_I5_path,"%s_bt11_%s_%03d_%s.dat" % (night_flag,date,tile,time))
             view_data = os.path.join(agg_I5_path,"view_%s_%03d_%s.dat" % (date,tile,time))
             out_bt_fn = os.path.join(tile_path,"%s_bt_flag_%s_T%03d_%s.dat" % (night_flag,date,tile,time))
-            subprocess.check_output("%s %s %s %s %s" % (mask,i5_data,cloud_data,water_data, out_bt_fn), shell=True)
-            subprocess.check_output(["%s" % mask, "%s" % i5_data, "%s" %  cloud_data,
-                                     "%s" % water_data, "%s" % out_bt_fn])
-            gzipped(out_bt_fn)
-            out_view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat" % (date,tile,time))
-            subprocess.check_output(["%s" % mask, "%s" % view_data, "%s" %  cloud_data,
-                                     "%s" % water_data, "%s" % out_view_fn])
-            gzipped(out_view_fn)
+            if os.path.exists(out_bt_fn):
+                subprocess.check_output("%s %s %s %s %s" % (mask,i5_data,cloud_data,water_data, out_bt_fn), shell=True)
+                subprocess.check_output(["%s" % mask, "%s" % i5_data, "%s" %  cloud_data,
+                                         "%s" % water_data, "%s" % out_bt_fn])
+                gzipped(out_bt_fn)
+                out_view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat" % (date,tile,time))
+                subprocess.check_output(["%s" % mask, "%s" % view_data, "%s" %  cloud_data,
+                                         "%s" % water_data, "%s" % out_view_fn])
+                gzipped(out_view_fn)
     
 def getIJcoords(tile):
     coords = "generate_lookup"
