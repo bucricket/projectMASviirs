@@ -614,16 +614,20 @@ def atmosCorrection(tile,year,doy):
     cfsr_tile_path = os.path.join(CFSR_path,"%d" % year)
     for i in range(len(filelist)):
         fn = filelist[i]
-        time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+        time_str = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+        time=((int(time_str)/300)+1)*300
+        if (int(time_str)==2400):
+            time=2100
+
         #======io filenames============================================
-        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%s.dat" % (date,time))
-        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%s.dat" % (date,time))
-        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%s.dat" % (date,time))
-        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%s.dat" % (date,time))
-        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%s.dat" % (date,time))
+        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (date,time))
+        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (date,time))
+        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (date,time))
+        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (date,time))
+        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (date,time))
         icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
         jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
-        view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
+        view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time_str))
         raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
         trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
         out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
@@ -631,10 +635,10 @@ def atmosCorrection(tile,year,doy):
 #        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
         gunzip(fn,out_fn=raw_trad_fn)
         gunzip(view_fn,out_fn= out_view_fn)
-        subprocess.check_output(["%s" % offset, "%d" % year, "%03d" %  doy, "%s" % time,
+        subprocess.check_output(["%s" % offset, "%d" % year, "%03d" %  doy, "%s" % time_str,
                                      "T%03d" % tile, "%s" % ztime_fn, "%s" % raw_trad_fn,
                                      "%s" % dtrad_fn, "%s" % trad_fn])
-        outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time))
+        outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
         out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
                                        "%s" % qprof,"%s" % tsfcfile,
                                        "%s" % presfile, "%s" % qsfcfile,
@@ -650,16 +654,19 @@ def atmosCorrection(tile,year,doy):
     filelist = glob.glob(os.path.join(tile_path,'night_bt_flag_%s*T%03d*.gz' % (date,tile)))
     for i in range(len(filelist)):
         fn = filelist[i]
-        time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+        time_str = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+        time=((int(time_str)/300)+1)*300
+        if (int(time_str)==2400):
+            time=2100
         #======io filenames============================================
-        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%s.dat" % (date,time))
-        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%s.dat" % (date,time))
-        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%s.dat" % (date,time))
-        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%s.dat" % (date,time))
-        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%s.dat" % (date,time))
+        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (date,time))
+        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (date,time))
+        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (date,time))
+        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (date,time))
+        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (date,time))
         icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
         jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
-        view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
+        view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time_str))
         raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
         trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
         out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
@@ -667,7 +674,7 @@ def atmosCorrection(tile,year,doy):
 #        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
         gunzip(fn,out_fn=raw_trad_fn)
         gunzip(view_fn,out_fn= out_view_fn)
-        outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time))
+        outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
         out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
                                        "%s" % qprof,"%s" % tsfcfile,
                                        "%s" % presfile, "%s" % qsfcfile,
