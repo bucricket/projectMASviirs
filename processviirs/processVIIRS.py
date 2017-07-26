@@ -595,9 +595,9 @@ def pred_dtrad(tile,year,doy):
 def main():
     # Get time and location from user
     parser = argparse.ArgumentParser()
-    parser.add_argument("tile", type=float, help="15x15 deg tile number")
-    parser.add_argument("year", type=float, help="year of data")
-    parser.add_argument("doy", type=str, help="day of year of data")
+    parser.add_argument("tile", type=int, help="15x15 deg tile number")
+    parser.add_argument("year", type=int, help="year of data")
+    parser.add_argument("doy", type=int, help="day of year of data")
     args = parser.parse_args()
       
     tile = args.tile
