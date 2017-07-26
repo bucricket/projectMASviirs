@@ -424,8 +424,11 @@ def getIJcoords(tile):
     coords = "generate_lookup"
     lat,lon = tile2latlon(tile)
     tilestr = "T%03d" % tile
-    icoordpath = os.path.join(base,"CFSR","viirs_tile_lookup_tables","CFSR_T%03d_lookup_icoord.dat" % tile)
-    jcoordpath = os.path.join(base,"CFSR","viirs_tile_lookup_tables","CFSR_T%03d_lookup_jcoord.dat" % tile)
+    tile_lut_path = os.path.join(processing_path,"CFSR","viirs_tile_lookup_tables")
+    if not os.path.exists(tile_lut_path):
+        os.makedirs(tile_lut_path) 
+    icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
+    jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
     if not os.path.exists(icoordpath):
         print("generating i and j coords...")
         subprocess.check_output(["%s" % coords, "%d" % lat, "%d" % lon, "%s" % tilestr])
