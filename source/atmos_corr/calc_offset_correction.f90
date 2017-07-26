@@ -2,8 +2,8 @@ program calc_offset_correction
 !character (len=*), allocatable :: basedir
 character(len=4) :: tile_num
 integer, parameter :: dx=3750, dy=3750
-character(len=255) :: dayfile, nightfile, dtimefile, ntimefile
-character(len=255) :: avgfile, dztimefile, nztimefile
+character(len=400) :: dayfile, outdayfile, dtimefile, ntimefile
+character(len=400) :: avgfile, dztimefile, nztimefile
 character(len=255) :: arg4, basedir
 character(len=4) :: arg1, arg3
 character(len=3) :: arg2
@@ -33,11 +33,14 @@ call getarg(1,arg1)
 call getarg(2,arg2)
 call getarg(3,arg3)
 call getarg(4,tile_num)
-call getarg(5,arg4)
+call getarg(5,dztimefile)
+call getarg(6,dayfile)
+call getarg(7,avgfile)
+call getarg(8,outdayfile)
 read(arg1,'(i4)') iyear
 read(arg2,'(i3)') iday
 read(arg3,'(i4)') time
-basedir=trim(arg4)
+!basedir=trim(arg4)
 
 write(6,*) iyear, iday, time, tile_num, basedir
 yyyyddd=iyear*1000+iday
@@ -50,13 +53,13 @@ offset=int((iday-cday)/7.)
 rday=int(((offset+nweek1)*7)+1)
 write(6,*) yyyyddd, rday
 
-write(dztimefile,'(a,a,a,a)') basedir,'/PROCESSING/overpass_corr/CURRENT_DAY_ZTIME_',tile_num,'.dat'
+!write(dztimefile,'(a,a,a,a)') basedir,'/PROCESSING/overpass_corr/CURRENT_DAY_ZTIME_',tile_num,'.dat'
 open(10,file=dztimefile,form='unformatted',access='direct',recl=dx*dy*4)
 read(10,rec=1) dztime
 close(10)
 
-write(dayfile,'(a,a,a,a)') basedir,'/PROCESSING/overpass_corr/RAW_TRAD1_',tile_num,'.dat'
-write(avgfile,'(a,a,a,a)') basedir,'/PROCESSING/overpass_corr/CURRENT_DTRAD_AVG_',tile_num,'.dat'
+!write(dayfile,'(a,a,a,a)') basedir,'/PROCESSING/overpass_corr/RAW_TRAD1_',tile_num,'.dat'
+!write(avgfile,'(a,a,a,a)') basedir,'/PROCESSING/overpass_corr/CURRENT_DTRAD_AVG_',tile_num,'.dat'
 
 open(10,file=dayfile,form='unformatted',access='direct',recl=dx*dy*4)
 open(14,file=avgfile,form='unformatted',access='direct',recl=dx*dy*4)
@@ -89,8 +92,8 @@ endif
 enddo
 enddo
 
-write(dayfile,'(a,a,a)') basedir,'/PROCESSING/overpass_corr/TRAD1_',tile_num
-open(10,file=dayfile,form='unformatted',access='direct',recl=dx*dy*4)
+!write(dayfile,'(a,a,a)') basedir,'/PROCESSING/overpass_corr/TRAD1_',tile_num
+open(10,file=outdayfile,form='unformatted',access='direct',recl=dx*dy*4)
 write(10,rec=1) day_corr
 close(10)
 
