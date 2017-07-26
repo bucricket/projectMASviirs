@@ -321,9 +321,10 @@ def regrid_I5(tile,year,doy):
     
             view_agg = os.path.join(agg_I5_path,"view_%s_%03d_%s.dat" % (date,tile,time))
             trad_agg_day = os.path.join(agg_I5_path,"day_bt11_%s_%03d_%s.dat" % (date,tile,time))
-        
-            subprocess.check_output(["%s" % agg4,"%s" % trad_sum_fn,"%s" % trad_count_fn, "%s" % trad_agg_day ])
-            subprocess.check_output(["%s" % agg_view,"%s" % view_sum_fn,"%s" % view_count_fn, "%s" % view_agg ])
+            if os.path.exists(trad_agg_day):            
+                subprocess.check_output(["%s" % agg4,"%s" % trad_sum_fn,"%s" % trad_count_fn, "%s" % trad_agg_day ])
+                subprocess.check_output(["%s" % agg_view,"%s" % view_sum_fn,"%s" % view_count_fn, "%s" % view_agg ])
+                
         else:
             #grid night I5 data
             trad_sum_fn_night = os.path.join(grid_I5_path,'night_bt11_sum1_%03d_%s.dat' % (tile,time))
@@ -342,9 +343,9 @@ def regrid_I5(tile,year,doy):
             view_agg = os.path.join(agg_I5_path,"view_%s_%03d_%s.dat" % (date,tile,time))
             trad_agg_night = os.path.join(agg_I5_path,"night_bt11_%s_%03d_%s.dat" % (date,tile,time))
             
-            
-            subprocess.check_output(["%s" % agg4,"%s" % trad_sum_fn_night,"%s" % trad_count_fn_night, "%s" % trad_agg_night ])
-            subprocess.check_output(["%s" % agg_view,"%s" % view_sum_fn_night,"%s" % view_count_fn_night, "%s" % view_agg ])
+            if os.path.exists(trad_agg_night):
+                subprocess.check_output(["%s" % agg4,"%s" % trad_sum_fn_night,"%s" % trad_count_fn_night, "%s" % trad_agg_night ])
+                subprocess.check_output(["%s" % agg_view,"%s" % view_sum_fn_night,"%s" % view_count_fn_night, "%s" % view_agg ])
 
 
 def regrid_cloud(tile,year,doy):
