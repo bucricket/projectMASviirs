@@ -429,8 +429,8 @@ def getIJcoords(tile):
     if not os.path.exists(icoordpath):
         print("generating i and j coords...")
         subprocess.check_output(["%s" % coords, "%d" % lat, "%d" % lon, "%s" % tilestr])
-        shutil.move(os.path.join(base,"CFSR_T%03d_lookup_icoord.dat" % tile), icoordpath)
-        shutil.move(os.path.join(base,"CFSR_T%03d_lookup_jcoord.dat" % tile), jcoordpath)
+        shutil.move(os.path.join(processing_path,"CFSR_T%03d_lookup_icoord.dat" % tile), icoordpath)
+        shutil.move(os.path.join(processing_path,"CFSR_T%03d_lookup_jcoord.dat" % tile), jcoordpath)
         
 def atmosCorrection(tile,year,doy):
     #====get week date=====
