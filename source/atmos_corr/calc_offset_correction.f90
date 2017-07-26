@@ -3,7 +3,7 @@ program calc_offset_correction
 character(len=4) :: tile_num
 integer, parameter :: dx=3750, dy=3750
 character(len=255) :: dayfile, nightfile, dtimefile, ntimefile
-character(len=400) :: avgfile, dztimefile, nztimefile
+character(len=255) :: avgfile, dztimefile, nztimefile
 character(len=255) :: arg4, basedir
 character(len=4) :: arg1, arg3
 character(len=3) :: arg2
