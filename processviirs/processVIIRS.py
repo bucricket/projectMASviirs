@@ -17,6 +17,9 @@ import gzip
 import shutil
 from osgeo import gdal,osr
 import argparse
+import urllib2, base64
+
+
 
 def folders(base):
     data_path = os.path.abspath(os.path.join(base,os.pardir,'VIIRS_DATA'))
@@ -52,12 +55,16 @@ def folders(base):
     overpass_correction_path = os.path.join(processing_path,"overpass_corr")   
     if not os.path.exists(overpass_correction_path):
         os.makedirs(overpass_correction_path)
+    CFSR_path = os.path.join(processing_path,"CFSR")   
+    if not os.path.exists(CFSR_path):
+        os.makedirs(CFSR_path)
     out = {'grid_I5_path':grid_I5_path,'grid_I5_temp_path':grid_I5_temp_path,
            'agg_I5_path':agg_I5_path,'data_path':data_path,
            'cloud_grid': cloud_grid,'temp_cloud_data':temp_cloud_data,
            'agg_cloud_path':agg_cloud_path,'processing_path':processing_path,
            'static_path':static_path,'tile_base_path':tile_base_path,
-           'overpass_correction_path':overpass_correction_path}
+           'overpass_correction_path':overpass_correction_path,
+           'CFSR_path':CFSR_path}
     return out
 
 base = os.getcwd()
@@ -73,6 +80,7 @@ processing_path = Folders['processing_path']
 static_path = Folders['static_path']
 tile_base_path = Folders['tile_base_path']
 overpass_corr_path = Folders['overpass_correction_path']
+CFSR_path = Folders['CFSR_path']
 
 
 def gunzip(fn, *positional_parameters, **keyword_parameters):
@@ -439,6 +447,144 @@ def getIJcoords(tile):
         subprocess.check_output(["%s" % coords, "%d" % lat, "%d" % lon, "%s" % tilestr])
         shutil.move(os.path.join(base,"CFSR_T%03d_lookup_icoord.dat" % tile), icoordpath)
         shutil.move(os.path.join(base,"CFSR_T%03d_lookup_jcoord.dat" % tile), jcoordpath)
+
+ncdcURL = 'https://nomads.ncdc.noaa.gov/modeldata/cfsv2_analysis_pgbh/'
+
+class earthDataHTTPRedirectHandler(urllib2.HTTPRedirectHandler):
+    def http_error_302(self, req, fp, code, msg, headers):
+        return urllib2.HTTPRedirectHandler.http_error_302(self, req, fp, code, msg, headers)
+    
+
+def getHTTPdata(url,outFN,auth=None):
+    request = urllib2.Request(url) 
+    if not (auth == None):
+        username = auth[0]
+        password = auth[1]
+        base64string = base64.encodestring('%s:%s' % (username, password)).replace('\n', '')
+        request.add_header("Authorization", "Basic %s" % base64string) 
+    
+    cookieprocessor = urllib2.HTTPCookieProcessor()
+    opener = urllib2.build_opener(earthDataHTTPRedirectHandler, cookieprocessor)
+    urllib2.install_opener(opener) 
+    r = opener.open(request)
+    result = r.read()
+    
+    with open(outFN, 'wb') as f:
+        f.write(result)
+
+def moveFiles(sourcepath,destinationpath,date,forcastHR,hr,ext):
+    hr = hr+forcastHR
+    source = os.listdir(sourcepath)
+    for files in source:
+        if files.endswith('.%s' % ext):
+            shutil.move(os.path.join(sourcepath,files), os.path.join(destinationpath,files[:-4]+'_%s_%02d00.dat') % (date,hr))   
+
+def write_gen_sfc_prof():
+    fn = os.path.join('./gen_sfc_prof_fields.gs')
+    file = open(fn, "w")
+    file.write("'open current.ctl'\n")
+    file.write("\n")
+    file.write("'set lon -180 180'\n")
+    file.write("'set lat -89.875 89.875' \n")
+    file.write("\n")
+    file.write("'set gxout fwrite'\n")
+    file.write("'set fwrite sfc_temp.dat'\n")
+    file.write("'d re(smth9(tmpsig995),0.25,0.25)'\n")
+    file.write("'disable fwrite'\n")
+    file.write("\n")
+    file.write("'set gxout fwrite'\n")
+    file.write("'set fwrite sfc_pres.dat'\n")
+    file.write("'d re(smth9(pressfc),0.25,0.25)'\n")
+    file.write("'disable fwrite'\n")
+    file.write("\n")
+    file.write("'set gxout fwrite'\n")
+    file.write("'set fwrite sfc_spfh.dat'\n")
+    file.write("'d re(smth9(spfhhy1),0.25,0.25)'\n")
+    file.write("'disable fwrite'\n")
+    file.write("\n")
+    file.write("\n")
+    file.write("'set gxout fwrite'\n")
+    file.write("'set fwrite temp_profile.dat'\n")
+    file.write("z=1\n")
+    file.write("while (z <= 21)\n")
+    file.write(" 'set z 'z\n")
+    file.write(" 'd re(smth9(tmpprs),0.25,0.25)'\n")
+    file.write(" z=z+1\n")
+    file.write("endwhile\n")
+    file.write("'disable fwrite'\n")
+    file.write("\n")
+    file.write("'set gxout fwrite'\n")
+    file.write("'set fwrite spfh_profile.dat'\n")
+    file.write("z=1\n")
+    file.write("while (z <= 21)\n")
+    file.write(" 'set z 'z\n")
+    file.write(" 'd re(smth9(spfhprs),0.25,0.25)'\n")
+    file.write(" z=z+1\n")
+    file.write("endwhile\n")
+    file.write("'disable fwrite'\n")
+    file.close()
+
+
+def runGrads(fn):
+    g2ctl = 'g2ctl'
+    gribmap = 'gribmap'
+    opengrads = 'opengrads'
+    gen_sfc_prof = './gen_sfc_prof_fields.gs'
+    subprocess.check_output("%s %s > ./current.ctl" % (g2ctl,fn), shell=True)
+    subprocess.check_output("%s -i ./current.ctl -0" % gribmap, shell=True)
+    out = subprocess.check_output("%s -blxc 'run %s '" % (opengrads,gen_sfc_prof), shell=True)
+    
+    print out
+  
+def getCFSRdata(year,doy):  
+    write_gen_sfc_prof()     
+    levs="(100|150|200|250|300|350|400|450|500|550|600|650|700|750|800|850|900|925|950|975|1000) mb"
+
+    
+    s1="(HGT):%s" % levs
+    s2="(TMP):%s" % levs
+    s3="(SPFH):%s" % levs
+    s4="DLWRF:surface"
+    s5="HGT:surface"
+    s6="PRES:surface"
+    s7="SPFH:1 hybrid level"
+    s8="TMP:0.995 sigma level"
+    s9="UGRD:0.995 sigma level"
+    s10="VGRD:0.995 sigma level"
+    wgrib = "wgrib2"
+
+#    for year in range(iyear,eyear):
+#        for doy in range(iday,eday):
+    dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
+    date = "%d%03d" %(year,doy)
+    print "date:%s" % date
+    print "============================================================"
+    for i in range(0,8):
+        hrs = [0,0,6,6,12,12,18,18]
+        hr = hrs[i]
+        forcastHRs = [0,3,0,3,0,3,0,3]
+        forcastHR = forcastHRs[i]
+        hr1file = 'cdas1.t%02dz.pgrbh%02d.grib2' % (hr,forcastHR)
+        print "processing file...%s" % hr1file
+    
+        #------download file                
+        pydapURL = os.path.join(ncdcURL,"%s" % year,"%d%02d" % (year,dd.month),
+                                "%d%02d%02d" % (year,dd.month,dd.day),hr1file)
+        outFN = os.path.join(os.getcwd(),hr1file)
+        getHTTPdata(pydapURL,outFN)
+        
+        #------extract data
+        cfsr_out = os.path.join(os.getcwd(),"CFSR_%d%02d%02d_%02d00_00%d.grb2" % (year,dd.month,dd.day,hr,forcastHR))
+        
+        subprocess.check_output(["%s" % wgrib, "%s" % outFN, "-match",
+                                 "\"%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\"" % (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10),
+                                 "-grib", "%s" % cfsr_out])
+        #-------process using grads------
+        runGrads(cfsr_out)
+        srcpath = os.getcwd()
+        dstpath =  os.path.join(CFSR_path,'output',"%d" % year)
+        moveFiles(srcpath,dstpath,date,forcastHR,hr,"dat")
+    print "finished processing!"
         
 def atmosCorrection(tile,year,doy):
     #====get week date=====
@@ -464,9 +610,9 @@ def atmosCorrection(tile,year,doy):
         fn = filelist[i]
         time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
         view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
-        raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d" % tile)
-        out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d" % tile)
-        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
+        raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
+        out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
+#        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
         gunzip(fn,out_fn=raw_trad_fn)
         gunzip(view_fn,out_fn= out_view_fn)
         subprocess.check_output(["%s" % offset, "%d" % year, "%03d" %  doy, "%s" % time,
@@ -486,17 +632,18 @@ def atmosCorrection(tile,year,doy):
         fn = filelist[i]
         time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
         view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
-        out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d" % tile)
-        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
-        gunzip(fn,out_fn=out_trad_fn)
+        raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
+        out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
+#        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
+        gunzip(fn,out_fn=raw_trad_fn)
         gunzip(view_fn,out_fn= out_view_fn)
         outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time))
         subprocess.check_output(["%s" % run_correction,"T%03d" % tile, "%s" % time,
                                  "%s" % date, "%d" % year,"%s" % base, "%s" % outfn])
         
         gzipped(outfn)
-        os.remove(out_trad_fn)
-        os.remove(out_view_fn)
+#        os.remove(out_trad_fn)
+#        os.remove(out_view_fn)
         
     
 def merge_lst(tile,year,doy):

@@ -54,7 +54,7 @@ open(10,file=dztimefile,form='unformatted',access='direct',recl=dx*dy*4)
 read(10,rec=1) dztime
 close(10)
 
-write(dayfile,'(a,a,a)') basedir,'/PROCESSING/overpass_corr/RAW_TRAD1_',tile_num
+write(dayfile,'(a,a,a)') basedir,'/PROCESSING/overpass_corr/RAW_TRAD1_',tile_num,'.dat'
 write(avgfile,'(a,a,a,a)') basedir,'/PROCESSING/overpass_corr/CURRENT_DTRAD_AVG_',tile_num,'.dat'
 
 open(10,file=dayfile,form='unformatted',access='direct',recl=dx*dy*4)
