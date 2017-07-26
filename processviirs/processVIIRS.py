@@ -616,11 +616,11 @@ def atmosCorrection(tile,year,doy):
         fn = filelist[i]
         time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
         #======io filenames============================================
-        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%s.dat" (date,time))
-        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%s.dat" (date,time))
-        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%s.dat" (date,time))
-        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%s.dat" (date,time))
-        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%s.dat" (date,time))
+        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%s.dat" % (date,time))
+        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%s.dat" % (date,time))
+        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%s.dat" % (date,time))
+        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%s.dat" % (date,time))
+        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%s.dat" % (date,time))
         icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
         jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
         view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
@@ -652,11 +652,11 @@ def atmosCorrection(tile,year,doy):
         fn = filelist[i]
         time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
         #======io filenames============================================
-        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%s.dat" (date,time))
-        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%s.dat" (date,time))
-        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%s.dat" (date,time))
-        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%s.dat" (date,time))
-        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%s.dat" (date,time))
+        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%s.dat" % (date,time))
+        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%s.dat" % (date,time))
+        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%s.dat" % (date,time))
+        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%s.dat" % (date,time))
+        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%s.dat" % (date,time))
         icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
         jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
         view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
