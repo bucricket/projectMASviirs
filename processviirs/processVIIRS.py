@@ -601,11 +601,13 @@ def atmosCorrection(tile,year,doy):
     run_correction = "run_correction"
     overpass_corr_cache = os.path.join(static_path,"nominal_overpass_tiles")
 #    overpass_corr_path = os.path.join(processing_path,"overpass_corr")
+    ztime_fn = os.path.join(overpass_corr_path,"CURRENT_DAY_ZTIME_T%03d.dat" % tile)
     gunzip(os.path.join(overpass_corr_cache,"DAY_ZTIME_T%03d.dat.gz" % tile),
-       out_fn=os.path.join(overpass_corr_path,"CURRENT_DAY_ZTIME_T%03d.dat" % tile))
+       out_fn=ztime_fn)
     dtrad_cache = os.path.join(static_path,"dtrad_avg")
+    dtrad_fn =os.path.join(overpass_corr_path,"CURRENT_DTRAD_AVG_T%03d.dat" % tile)
     gunzip(os.path.join(dtrad_cache,"DTRAD_T%03d_%d.dat.gz" % (tile,avgddd)),
-       out_fn=os.path.join(overpass_corr_path,"CURRENT_DTRAD_AVG_T%03d.dat" % tile))
+       out_fn=dtrad_fn)
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
     filelist = glob.glob(os.path.join(tile_path,'day_bt_flag_%s*T%03d*.gz' % (date,tile)))
     for i in range(len(filelist)):
@@ -613,12 +615,14 @@ def atmosCorrection(tile,year,doy):
         time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
         view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
         raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
+        trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
         out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
 #        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
         gunzip(fn,out_fn=raw_trad_fn)
         gunzip(view_fn,out_fn= out_view_fn)
         subprocess.check_output(["%s" % offset, "%d" % year, "%03d" %  doy, "%s" % time,
-                                     "T%03d" % tile, "%s" % base])
+                                     "T%03d" % tile, "%s" % ztime_fn, "%s" % raw_trad_fn,
+                                     "%s" % dtrad_fn, "%s" % trad_fn])
         outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time))
         out = subprocess.check_output(["%s" % run_correction,"T%03d" % tile, "%s" % time,
                                  "%s" % date, "%d" % year,"%s" % base, "%s" % outfn])
