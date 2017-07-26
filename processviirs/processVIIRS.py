@@ -775,6 +775,7 @@ def main():
     regrid_cloud(tile,year,doy)
     Apply_mask(tile,year,doy)
     getIJcoords(tile)
+    getCFSRdata(year,doy)
     atmosCorrection(tile,year,doy)
     merge_lst(tile,year,doy)
 #    pred_dtrad(tile,year,doy)
