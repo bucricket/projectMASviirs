@@ -618,7 +618,7 @@ def main():
     getIJcoords(tile)
     atmosCorrection(tile,year,doy)
     merge_lst(tile,year,doy)
-    pred_dtrad(tile,year,doy)
+#    pred_dtrad(tile,year,doy)
 
 #=====convert to geotiff=================
 #
