@@ -49,7 +49,7 @@ def folders(base):
     temp_cloud_data = os.path.join(cloud_grid,'temp_cloud_data')
     if not os.path.exists(temp_cloud_data):
         os.makedirs(temp_cloud_data) 
-    overpass_correction_path = os.path.join(proecessing_path,"overpass_corr")   
+    overpass_correction_path = os.path.join(processing_path,"overpass_corr")   
     if not os.path.exists(overpass_correction_path):
         os.makedirs(overpass_correction_path)
     out = {'grid_I5_path':grid_I5_path,'grid_I5_temp_path':grid_I5_temp_path,
