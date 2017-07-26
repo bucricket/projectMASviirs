@@ -574,7 +574,7 @@ def getCFSRdata(year,doy):
         getHTTPdata(pydapURL,outFN)
         
         #------extract data
-        cfsr_out = os.path.join(os.getcwd(),"CFSR_%d%02d%02d_%02d00_00%d.grb2" % (year,dd.month,dd.day,hr,forcastHR))
+        cfsr_out = os.path.join(os.getcwd(),"CFSR_%d%02d%02d_%02d00_00%d.grib2" % (year,dd.month,dd.day,hr,forcastHR))
         
         subprocess.check_output(["%s" % wgrib, "%s" % outFN, "-match",
                                  "\"%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\"" % (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10),
