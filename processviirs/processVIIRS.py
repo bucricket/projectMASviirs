@@ -446,7 +446,7 @@ def atmosCorrection(tile,year,doy):
     #=========================
     offset = "calc_offset_correction"
     run_correction = "run_correction"
-    overpass_corr_cache = os.path.join(static_path,"nominal_overpass_time_tiles")
+    overpass_corr_cache = os.path.join(static_path,"nominal_overpass_tiles")
     overpass_corr_path = os.path.join(processing_path,"overpass_corr")
     gunzip(os.path.join(overpass_corr_cache,"DAY_ZTIME_T%03d.dat.gz" % tile),
        out_fn=os.path.join(overpass_corr_path,"CURRENT_DAY_ZTIME_T%03d.dat" % tile))
