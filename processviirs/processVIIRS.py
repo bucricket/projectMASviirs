@@ -446,11 +446,11 @@ def atmosCorrection(tile,year,doy):
     #=========================
     offset = "calc_offset_correction"
     run_correction = "run_correction"
-    overpass_corr_cache = os.path.join(base,"nominal_overpass_time_tiles")
-    overpass_corr_path = os.path.join(base,"overpass_corr")
+    overpass_corr_cache = os.path.join(static_path,"nominal_overpass_time_tiles")
+    overpass_corr_path = os.path.join(processing_path,"overpass_corr")
     gunzip(os.path.join(overpass_corr_cache,"DAY_ZTIME_T%03d.dat.gz" % tile),
        out_fn=os.path.join(overpass_corr_path,"CURRENT_DAY_ZTIME_T%03d.dat" % tile))
-    dtrad_cache = os.path.join(base,"dtrad_avg")
+    dtrad_cache = os.path.join(static_path,"dtrad_avg")
     gunzip(os.path.join(dtrad_cache,"DTRAD_T%03d_%d.dat.gz" % (tile,avgddd)),
        out_fn=os.path.join(overpass_corr_path,"CURRENT_DTRAD_AVG_T%03d.dat" % tile))
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
@@ -498,7 +498,7 @@ def merge_lst(tile,year,doy):
     merge = "merge_overpass"
     date = "%d%03d" % (year,doy)
     #=====create times text file=======
-    merge_path = os.path.join(base,"MERGE_DAY_NIGHT")
+    merge_path = os.path.join(processing_path,"MERGE_DAY_NIGHT")
     if not os.path.exists(merge_path):
         os.makedirs(merge_path)
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
