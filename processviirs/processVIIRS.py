@@ -48,12 +48,16 @@ def folders(base):
         os.makedirs(agg_cloud_path) 
     temp_cloud_data = os.path.join(cloud_grid,'temp_cloud_data')
     if not os.path.exists(temp_cloud_data):
-        os.makedirs(temp_cloud_data)     
+        os.makedirs(temp_cloud_data) 
+    overpass_correction_path = os.path.join(proecessing_path,"overpass_corr")   
+    if not os.path.exists(overpass_correction_path):
+        os.makedirs(overpass_correction_path)
     out = {'grid_I5_path':grid_I5_path,'grid_I5_temp_path':grid_I5_temp_path,
            'agg_I5_path':agg_I5_path,'data_path':data_path,
            'cloud_grid': cloud_grid,'temp_cloud_data':temp_cloud_data,
            'agg_cloud_path':agg_cloud_path,'processing_path':processing_path,
-           'static_path':static_path,'tile_base_path':tile_base_path}
+           'static_path':static_path,'tile_base_path':tile_base_path,
+           'overpass_correction_path':overpass_correction_path}
     return out
 
 base = os.getcwd()
@@ -68,6 +72,7 @@ agg_cloud_path = Folders['agg_cloud_path']
 processing_path = Folders['processing_path']
 static_path = Folders['static_path']
 tile_base_path = Folders['tile_base_path']
+overpass_corr_path = Folders['overpass_correction_path']
 
 
 def gunzip(fn, *positional_parameters, **keyword_parameters):
@@ -447,7 +452,7 @@ def atmosCorrection(tile,year,doy):
     offset = "calc_offset_correction"
     run_correction = "run_correction"
     overpass_corr_cache = os.path.join(static_path,"nominal_overpass_tiles")
-    overpass_corr_path = os.path.join(processing_path,"overpass_corr")
+#    overpass_corr_path = os.path.join(processing_path,"overpass_corr")
     gunzip(os.path.join(overpass_corr_cache,"DAY_ZTIME_T%03d.dat.gz" % tile),
        out_fn=os.path.join(overpass_corr_path,"CURRENT_DAY_ZTIME_T%03d.dat" % tile))
     dtrad_cache = os.path.join(static_path,"dtrad_avg")
