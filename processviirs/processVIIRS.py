@@ -582,7 +582,7 @@ def getCFSRdata(year,doy):
         #-------process using grads------
         runGrads(cfsr_out)
         srcpath = os.getcwd()
-        dstpath =  os.path.join(CFSR_path,'output',"%d" % year)
+        dstpath =  os.path.join(CFSR_path,"%d" % year)
         if not os.path.exists(dstpath):
             os.makedirs(dstpath) 
         moveFiles(srcpath,dstpath,date,forcastHR,hr,"dat")
