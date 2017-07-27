@@ -712,9 +712,9 @@ def merge_lst(tile,year,doy):
         np.savetxt(lst_list_fn,times,fmt="%s" )
         out_lst_fn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
         out_view_fn = os.path.join(tile_path,"FINAL_DAY_VIEW_%s_T%03d.dat" % (date,tile))
-        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%d" % year, 
-                                 "%03d" % doy, "T%03d" % tile, "%d" % nfiles,
-                                 "%s%s" % (tile_path, os.sep), "%s" % out_lst_fn, "%s" % out_view_fn])
+        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % lst_fn[:-3], 
+                                 "%s" % view_fn[:-3],"%d" % nfiles,
+                                 "%s" % out_lst_fn, "%s" % out_view_fn])
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
@@ -735,9 +735,10 @@ def merge_lst(tile,year,doy):
         np.savetxt(lst_list_fn,times,fmt="%s" )
         out_lst_fn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.dat" % (date,tile))
         out_view_fn = os.path.join(tile_path,"FINAL_NIGHT_VIEW_%s_T%03d.dat" % (date,tile))
-        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%d" % year, 
-                                 "%03d" % doy, "T%03d" % tile, "%d" % nfiles,
-                                 "%s%s" % (tile_base_path, os.sep), "%s" % out_lst_fn, "%s" % out_view_fn])
+
+        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % lst_fn[:-3], 
+                                 "%s" % view_fn[:-3],"%d" % nfiles,
+                                 "%s" % out_lst_fn, "%s" % out_view_fn])
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     

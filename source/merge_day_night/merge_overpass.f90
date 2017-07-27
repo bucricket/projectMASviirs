@@ -2,16 +2,16 @@ program merge_day_overpass
 
 integer, parameter :: dx=3750, dy=3750
 !character (len=:), allocatable :: dir, arg6
-character(len=255) :: list_files,dir, arg6
-character(len=255) :: outlstfile, outviewfile, arg7, arg8
+character(len=400) :: list_files,dir, arg6
+character(len=400) :: outlstfile, outviewfile, arg7, arg8
 character(len=4) :: arg2, arg4
 character(len=3) :: arg3
-character(len=1) :: arg5
+character(len=1) :: arg4
 integer :: nfiles, doy, year, yyyyddd
 character(len=4), allocatable :: times(:)
 integer :: status1
 real, allocatable :: lst(:,:,:), view(:,:,:)
-character(len=255) :: lstfile, viewfile
+character(len=400) :: lstfile, viewfile
 real :: temp1(dx,dy), temp2(dx,dy)
 real :: final_lst(dx,dy)
 real :: final_view(dx,dy)
@@ -20,21 +20,14 @@ integer :: min_index
 real :: min_view
 
 call getarg(1,list_files)
-call getarg(2,arg2)
-call getarg(3,arg3)
+call getarg(2,lstfile)
+call getarg(3,viewfile)
 call getarg(4,arg4)
-call getarg(5,arg5)
-call getarg(6,arg6)
-call getarg(7,arg7)
-call getarg(8,arg8)
-read(arg2,'(i4)') year
-read(arg3,'(i3)') doy
-read(arg5,'(i1)') nfiles
-yyyyddd=year*1000+doy
+call getarg(5,outlstfile)
+call getarg(6,outviewfile)
+read(arg4,'(i1)') nfiles
 write(6,*) yyyyddd, nfiles
-dir=trim(arg6)
-outlstfile=trim(arg7)
-outviewfile=trim(arg8)
+
 
 allocate(times(nfiles),stat=status1)
 allocate(lst(dx,dy,nfiles),stat=status1)
@@ -46,8 +39,8 @@ close(10)
 
 !dir='/raid1/sport/people/chain/VIIRS_PROCESS/TILES/'
 do k = 1, nfiles
- write(lstfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/lst_',yyyyddd,'_',arg4,'_',times(k),'.dat' 
- write(viewfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/view_angle_',yyyyddd,'_',arg4,'_',times(k),'.dat'
+ !write(lstfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/lst_',yyyyddd,'_',arg4,'_',times(k),'.dat' 
+ !write(viewfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/view_angle_',yyyyddd,'_',arg4,'_',times(k),'.dat'
  open(10,file=lstfile,form='unformatted',access='direct',recl=dx*dy*4)
  open(11,file=viewfile,form='unformatted',access='direct',recl=dx*dy*4)
  read(10,rec=1) temp1
