@@ -1,18 +1,14 @@
 program mask_water_cloud
 
 integer, parameter :: ax=3750, ay=3750
-character(len=255) :: arg1, arg2, arg3, file1, file2, file3
-character(len=255) :: arg4, file4
+character(len=400) :: file1, file2, file3, file4
 real :: bt(ax,ay), cloud(ax,ay), water(ax,ay)
 
-call getarg(1,arg1)
-call getarg(2,arg2)
-call getarg(3,arg3)
-call getarg(4,arg4)
-file1=trim(arg1)
-file2=trim(arg2)
-file3=trim(arg3)
-file4=trim(arg4)
+call getarg(1,file1)
+call getarg(2,file2)
+call getarg(3,file3)
+call getarg(4,file4)
+
 
 open(10,file=file1,form='unformatted',access='direct',recl=ax*ay*4)
 read(10,rec=1) bt
