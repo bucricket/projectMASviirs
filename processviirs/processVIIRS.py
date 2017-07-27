@@ -392,7 +392,7 @@ def regrid_cloud(tile,year,doy):
                                      "%s" % lonfile, "%s" % trad_sum_fn, "%s" % trad_count_fn])
 
             trad_agg_day = os.path.join(agg_cloud_path,"cloud_%s_%03d_%s.dat" % (date,tile,time))
-            if os.path.exists(trad_agg_day):
+            if os.path.exists(trad_sum_fn):
                 subprocess.check_output(["%s" % agg_cloud,"%s" % trad_sum_fn,"%s" % trad_count_fn, "%s" % trad_agg_day ])
 
         else:
@@ -404,7 +404,7 @@ def regrid_cloud(tile,year,doy):
                                      "%s" % lonfile, "%s" % trad_sum_fn, "%s" % trad_count_fn])
 
             trad_agg_night = os.path.join(agg_cloud_path,"cloud_%s_%03d_%s.dat" % (date,tile,time))
-            if os.path.exists(trad_agg_night):
+            if os.path.exists(trad_sum_fn):
                 subprocess.check_output(["%s" % agg_cloud,"%s" % trad_sum_fn,"%s" % trad_count_fn, "%s" % trad_agg_night ])
             
             
