@@ -49,7 +49,7 @@ enddo
 
 
 !write(file1,'(a,a,a)') arg3
-open(20,file=ofile1,form='unformatted',access='direct',recl=ax*ay*4)
+open(20,file=ofile,form='unformatted',access='direct',recl=ax*ay*4)
 write(20,rec=1) agg 
 close(20)
 
