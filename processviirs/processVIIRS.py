@@ -874,16 +874,16 @@ def main():
 
 #=====convert to geotiff=================
 #
-ALEXIshape = [3750,3750]
+#ALEXIshape = [3750,3750]
 #ALEXIshape = [2880,1200]
-ALEXIres = [0.004,0.004]
+#ALEXIres = [0.004,0.004]
 #ALEXIres = [0.125,0.125]
-row = tile/24
-col = tile-(row*24)
-ULlat= (75.-(row)*15.)
-ULlon=(-180.+(col-1.)*15.)      
-inUL = [ULlon,ULlat]  
-inUL = [-180., 59.95]
+#row = tile/24
+#col = tile-(row*24)
+#ULlat= (75.-(row)*15.)
+#ULlon=(-180.+(col-1.)*15.)      
+#inUL = [ULlon,ULlat]  
+#inUL = [-180., 59.95]
 #tile_path = os.path.join(base,"TILES","T%03d" % tile) 
 #tile_path = os.path.join(base,"overpass_corr")
 #tile_path = os.path.join(base,"CFSR","output","2016")
