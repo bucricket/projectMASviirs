@@ -33,11 +33,11 @@ allocate(viewfiles(nfiles),stat=status1)
 allocate(lst(dx,dy,nfiles),stat=status1)
 allocate(view(dx,dy,nfiles),stat=status1)
 
-open(10,file=trim(list_lstfiles)) 
+open(10,file=list_lstfiles) 
 read(10,*) lstfiles
 close(10)
 
-open(10,file=trim(list_viewfiles)) 
+open(10,file=list_viewfiles) 
 read(10,*) viewfiles
 close(10)
 
