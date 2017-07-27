@@ -697,11 +697,11 @@ def merge_lst(tile,year,doy):
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
 
     #======day=============================
-    lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
-    view_list_fn = os.path.join(merge_path,"view_files_T%03d.txt" % tile)
+#    lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
+#    view_list_fn = os.path.join(merge_path,"view_files_T%03d.txt" % tile)
     filelist = glob.glob(os.path.join(tile_path,'day_bt_flag_%s*T%03d*.gz' % (date,tile)))
-    lstfiles = []
-    viewfiles = []
+#    lstfiles = []
+#    viewfiles = []
     nfiles = len(filelist)
     viewout = np.empty([3750,3750,nfiles])    
     lstout = np.empty([3750,3750,nfiles]) 
@@ -711,21 +711,23 @@ def merge_lst(tile,year,doy):
             time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
 #            times.append(time)
             view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
+            gunzip(view_fn)
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
             viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
             viewout.tofile(view_stack)
 #            viewfiles.append(view_fn[:-3])
-            gunzip(view_fn)
+            
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
+            gunzip(lst_fn)
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
             lstout.tofile(lst_stack)
 #            lstfiles.append(lst_fn[:-3])
-            gunzip(lst_fn)
-        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
-        np.savetxt(view_list_fn,viewfiles,fmt="%s")
+            
+#        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
+#        np.savetxt(view_list_fn,viewfiles,fmt="%s")
         out_lst_fn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
         out_view_fn = os.path.join(tile_path,"FINAL_DAY_VIEW_%s_T%03d.dat" % (date,tile))
 #        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
@@ -736,7 +738,7 @@ def merge_lst(tile,year,doy):
         gzipped(out_view_fn)
     
     #===night=======
-    lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
+#    lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
     filelist = glob.glob(os.path.join(tile_path,'night_bt_flag_%s*T%03d*.gz' % (date,tile)))
     nfiles = len(filelist)
     if nfiles > 0:
@@ -745,17 +747,28 @@ def merge_lst(tile,year,doy):
             time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
 #            times.append(time)
             view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
-            viewfiles.append(view_fn[:-3])
             gunzip(view_fn)
+            view_stack = os.path.join(tile_path,"view_stack.dat")
+            read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
+            viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+            viewout.tofile(view_stack)
+#            viewfiles.append(view_fn[:-3])
+            
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
-            lstfiles.append(lst_fn[:-3])
             gunzip(lst_fn)
-        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
-        np.savetxt(view_list_fn,viewfiles,fmt="%s")
+            lst_stack = os.path.join(tile_path,"lst_stack.dat")
+            read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
+            lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+            lstout.tofile(lst_stack)
+#            lstfiles.append(lst_fn[:-3])
+            
+#        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
+#        np.savetxt(view_list_fn,viewfiles,fmt="%s")
         out_lst_fn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.dat" % (date,tile))
         out_view_fn = os.path.join(tile_path,"FINAL_NIGHT_VIEW_%s_T%03d.dat" % (date,tile))
-
-        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
+#        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
+#                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
+        subprocess.check_output(["%s" % merge,"%s" % lst_stack, "%s" % view_stack, 
                                  "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
