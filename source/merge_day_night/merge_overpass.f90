@@ -2,8 +2,8 @@ program merge_day_overpass
 
 integer, parameter :: dx=3750, dy=3750
 !character (len=:), allocatable :: dir, arg6
-character(len=400) :: list_lstfiles,list_viewfiles
-character(len=400) :: outlstfile, outviewfile
+character(len=450) :: list_lstfiles,list_viewfiles
+character(len=450) :: outlstfile, outviewfile
 character(len=4) :: arg2
 character(len=3) :: arg3
 character(len=1) :: arg4
