@@ -4,7 +4,7 @@ integer, parameter :: dx=3750, dy=3750
 !character (len=:), allocatable :: dir, arg6
 character(len=400) :: list_files,dir, arg6
 character(len=400) :: outlstfile, outviewfile, arg7, arg8
-character(len=4) :: arg2, arg4
+character(len=4) :: arg2
 character(len=3) :: arg3
 character(len=1) :: arg4
 integer :: nfiles, doy, year, yyyyddd
