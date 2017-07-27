@@ -33,14 +33,13 @@ read(arg4,'(i1)') nfiles
 allocate(lst(dx,dy,nfiles),stat=status1)
 allocate(view(dx,dy,nfiles),stat=status1)
 
-open(10,file=lstfiles) 
-read(10,*) lst
-close(10)
 
-open(10,file=viewfiles) 
-read(10,*) view
+open(10,file=lstfiles,form='unformatted',access='direct',recl=dx*dy*4)
+open(11,file=viewfiles,form='unformatted',access='direct',recl=dx*dy*4)
+read(10,rec=1) lst
+read(11,rec=1) view
 close(10)
-
+close(11)
 
 write(6,*) lst(2500,1500,:), view(2500,1500,:)
 write(6,*) minloc(view(2500,1500,:),mask=view(2500,1500,:).ne.-9999.)
