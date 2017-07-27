@@ -49,17 +49,17 @@ do k = 1, nfiles
  !write(lstfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/lst_',yyyyddd,'_',arg4,'_',times(k),'.dat' 
  !write(viewfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/view_angle_',yyyyddd,'_',arg4,'_',times(k),'.dat'
  write(lstfile,'(a)') lstfiles(k)
- write(viewfile,'(a)') viewfiles(k)
+ !write(viewfile,'(a)') viewfiles(k)
 
  open(10,file=lstfile,form='unformatted',access='direct',recl=dx*dy*4)
- open(11,file=viewfile,form='unformatted',access='direct',recl=dx*dy*4)
+ !open(11,file=viewfile,form='unformatted',access='direct',recl=dx*dy*4)
  read(10,rec=1) temp1
- read(11,rec=1) temp2
+ !read(11,rec=1) temp2
  close(10)
- close(11)
+ !close(11)
  write(6,*) inlstfile, k
  lst(:,:,k) = temp1(:,:)
- view(:,:,k) = temp2(:,:)
+ !view(:,:,k) = temp2(:,:)
 enddo
 
 write(6,*) lst(2500,1500,:), view(2500,1500,:)
