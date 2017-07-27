@@ -21,6 +21,7 @@ binPath = os.path.join(prefix,'bin')
 # Comment lines start with the # symbol
 # The following sets up an Compile Environment Object with gfortran as the linker.
 env = Environment(LINK='gfortran')
+env.Append(F90FLAGS = ['-ffree-line-length-512'])
 # The next line of code is an array of the source files names used in the program.
 # The next line is the actual code that links the executable. env.Program is generates an executable.
 merge_overpass = env.Program(target='merge_overpass', source= ['merge_overpass.f90'])
