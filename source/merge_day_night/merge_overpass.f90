@@ -41,14 +41,16 @@ open(10,file=trim(list_viewfiles))
 read(10,*) viewfiles
 close(10)
 
+write(6,*) lstfiles
+write(6,*) viewfiles
+ 
 !dir='/raid1/sport/people/chain/VIIRS_PROCESS/TILES/'
 do k = 1, nfiles
  !write(lstfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/lst_',yyyyddd,'_',arg4,'_',times(k),'.dat' 
  !write(viewfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/view_angle_',yyyyddd,'_',arg4,'_',times(k),'.dat'
  write(lstfile,'(a)') lstfiles(k)
  write(viewfile,'(a)') viewfiles(k)
- write(6,*) lstfile
- write(6,*) viewfile
+
  open(10,file=lstfile,form='unformatted',access='direct',recl=dx*dy*4)
  open(11,file=viewfile,form='unformatted',access='direct',recl=dx*dy*4)
  read(10,rec=1) temp1
