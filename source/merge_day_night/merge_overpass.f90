@@ -2,13 +2,13 @@ program merge_day_overpass
 
 integer, parameter :: dx=3750, dy=3750
 !character (len=:), allocatable :: dir, arg6
-character(len=450) :: list_lstfiles,list_viewfiles
+character(len=450) :: lstfiles,viewfiles
 character(len=450) :: outlstfile, outviewfile
 character(len=4) :: arg2
 character(len=3) :: arg3
 character(len=1) :: arg4
 integer :: nfiles, doy, year, yyyyddd
-character(len=450), allocatable :: lstfiles(:), viewfiles(:)
+!character(len=450), allocatable :: lstfiles(:), viewfiles(:)
 integer :: status1
 real, allocatable :: lst(:,:,:), view(:,:,:)
 character(len=450) :: lstfile, viewfile
@@ -19,8 +19,8 @@ integer :: test(1), ind
 integer :: min_index
 real :: min_view
 
-call getarg(1,list_lstfiles)
-call getarg(2,list_viewfiles)
+call getarg(1,lstfiles)
+call getarg(2,viewfiles)
 call getarg(3,arg4)
 call getarg(4,outlstfile)
 call getarg(5,outviewfile)
@@ -33,34 +33,14 @@ allocate(viewfiles(nfiles),stat=status1)
 allocate(lst(dx,dy,nfiles),stat=status1)
 allocate(view(dx,dy,nfiles),stat=status1)
 
-open(10,file=list_lstfiles) 
-read(10,*) lstfiles
+open(10,file=lstfiles) 
+read(10,*) lst
 close(10)
 
-open(10,file=list_viewfiles) 
-read(10,*) viewfiles
+open(10,file=viewfiles) 
+read(10,*) view
 close(10)
 
-write(6,*) lstfiles
-write(6,*) viewfiles
- 
-!dir='/raid1/sport/people/chain/VIIRS_PROCESS/TILES/'
-do k = 1, nfiles
- !write(lstfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/lst_',yyyyddd,'_',arg4,'_',times(k),'.dat' 
- !write(viewfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/view_angle_',yyyyddd,'_',arg4,'_',times(k),'.dat'
- write(lstfile,'(a)') lstfiles(k)
- !write(viewfile,'(a)') viewfiles(k)
-
- open(10,file=lstfile,form='unformatted',access='direct',recl=dx*dy*4)
- !open(11,file=viewfile,form='unformatted',access='direct',recl=dx*dy*4)
- read(10,rec=1) temp1
- !read(11,rec=1) temp2
- close(10)
- !close(11)
- write(6,*) inlstfile, k
- lst(:,:,k) = temp1(:,:)
- !view(:,:,k) = temp2(:,:)
-enddo
 
 write(6,*) lst(2500,1500,:), view(2500,1500,:)
 write(6,*) minloc(view(2500,1500,:),mask=view(2500,1500,:).ne.-9999.)
