@@ -715,9 +715,10 @@ def merge_lst(tile,year,doy):
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
             viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-#            viewout.tofile(view_stack)
-            with open(view_stack, 'wb') as fout:
-                fout.write(viewout.tostring())
+        
+#            view.tofile(view_stack)
+#            with open(view_stack, 'wb') as fout:
+#                fout.write(viewout.tostring())
 #            viewfiles.append(view_fn[:-3])
             
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
@@ -725,9 +726,11 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+        view = viewout.min(axis=2)
+        lst = lstout.min(axis=2)
 #            lstout.tofile(lst_stack)
-            with open(lst_stack, 'wb') as fout:
-                fout.write(lstout.tostring())
+#            with open(lst_stack, 'wb') as fout:
+#                fout.write(lstout.tostring())
 #            lstfiles.append(lst_fn[:-3])
             
 #        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
@@ -736,8 +739,12 @@ def merge_lst(tile,year,doy):
         out_view_fn = os.path.join(tile_path,"FINAL_DAY_VIEW_%s_T%03d.dat" % (date,tile))
 #        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
 #                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
-        subprocess.check_output(["%s" % merge,"%s" % lst_stack, "%s" % view_stack, 
-                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
+#        subprocess.check_output(["%s" % merge,"%s" % lst_stack, "%s" % view_stack, 
+#                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
+        view[view>60]= -9999.
+        lst[view>60] = -9999.
+        view.tofile(out_view_fn)
+        lst.tofile(out_lst_fn)
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
@@ -755,9 +762,10 @@ def merge_lst(tile,year,doy):
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
             viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-#            viewout.tofile(view_stack)
-            with open(view_stack, 'wb') as fout:
-                fout.write(viewout.tostring())
+        
+#            view.tofile(view_stack)
+#            with open(view_stack, 'wb') as fout:
+#                fout.write(viewout.tostring())
 #            viewfiles.append(view_fn[:-3])
             
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
@@ -765,9 +773,11 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+        view = viewout.min(axis=2)
+        lst = lstout.min(axis=2)
 #            lstout.tofile(lst_stack)
-            with open(lst_stack, 'wb') as fout:
-                fout.write(lstout.tostring())
+#            with open(lst_stack, 'wb') as fout:
+#                fout.write(lstout.tostring())
 #            lstfiles.append(lst_fn[:-3])
             
 #        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
@@ -776,8 +786,12 @@ def merge_lst(tile,year,doy):
         out_view_fn = os.path.join(tile_path,"FINAL_NIGHT_VIEW_%s_T%03d.dat" % (date,tile))
 #        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
 #                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
-        subprocess.check_output(["%s" % merge,"%s" % lst_stack, "%s" % view_stack, 
-                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
+#        subprocess.check_output(["%s" % merge,"%s" % lst_stack, "%s" % view_stack, 
+#                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
+        view[view>60]= -9999.
+        lst[view>60] = -9999.
+        view.tofile(out_view_fn)
+        lst.tofile(out_lst_fn)
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
@@ -860,16 +874,16 @@ def main():
 
 #=====convert to geotiff=================
 #
-#ALEXIshape = [3750,3750]
+ALEXIshape = [3750,3750]
 #ALEXIshape = [2880,1200]
-#ALEXIres = [0.004,0.004]
+ALEXIres = [0.004,0.004]
 #ALEXIres = [0.125,0.125]
-#row = tile/24
-#col = tile-(row*24)
-#ULlat= (75.-(row)*15.)
-#ULlon=(-180.+(col-1.)*15.)      
-#inUL = [ULlon,ULlat]  
-#inUL = [-180., 59.95]
+row = tile/24
+col = tile-(row*24)
+ULlat= (75.-(row)*15.)
+ULlon=(-180.+(col-1.)*15.)      
+inUL = [ULlon,ULlat]  
+inUL = [-180., 59.95]
 #tile_path = os.path.join(base,"TILES","T%03d" % tile) 
 #tile_path = os.path.join(base,"overpass_corr")
 #tile_path = os.path.join(base,"CFSR","output","2016")
