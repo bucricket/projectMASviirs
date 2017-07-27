@@ -34,10 +34,10 @@ allocate(lst(dx,dy,nfiles),stat=status1)
 allocate(view(dx,dy,nfiles),stat=status1)
 
 
-open(10,file=lstfiles,form='unformatted',access='direct',recl=dx*dy*4)
-open(11,file=viewfiles,form='unformatted',access='direct',recl=dx*dy*4)
-read(10,rec=1) lst
-read(11,rec=1) view
+open(10,file=lstfiles,form='unformatted',access='direct',recl=dx*dy*4*nfiles)
+open(11,file=viewfiles,form='unformatted',access='direct',recl=dx*dy*4*nfiles)
+read(10,rec=nfiles) lst
+read(11,rec=nfiles) view
 close(10)
 close(11)
 
