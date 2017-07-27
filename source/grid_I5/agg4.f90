@@ -4,21 +4,17 @@ integer, parameter :: dx=15000, dy=15000
 real :: lai(dx,dy)
 real :: ilai(dx,dy)
 real :: counter(dx,dy)
-character(len=255) :: file2, file1, ofile1
+character(len=400) :: file2, file1, ofile1
 integer, parameter :: ax=3750, ay=3750
 !integer (kind=1) :: agg(ax,ay)
 real :: agg(ax,ay)
 integer :: x1, x2, y1, y2
 real :: sum1, count1
-character(len=255) :: arg1, arg2
-character(len=255) :: arg3
 
-call getarg(1,arg1)
-call getarg(2,arg2)
-call getarg(3,arg3)
-file1=trim(arg1)
-file2=trim(arg2)
-ofile1=trim(arg3)
+call getarg(1,file1)
+call getarg(2,file2)
+call getarg(3,ofile)
+
 
 open(10,file=file1,form='unformatted',access='direct',recl=dx*dy*4)
 read(10,rec=1) ilai
