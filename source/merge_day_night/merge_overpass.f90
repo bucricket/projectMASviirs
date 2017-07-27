@@ -8,10 +8,10 @@ character(len=4) :: arg2
 character(len=3) :: arg3
 character(len=1) :: arg4
 integer :: nfiles, doy, year, yyyyddd
-character(len=400), allocatable :: lstfiles(:),viewfiles(:)
+character(len=450), allocatable :: lstfiles(:), viewfiles(:)
 integer :: status1
 real, allocatable :: lst(:,:,:), view(:,:,:)
-character(len=400) :: lstfile, viewfile
+character(len=450) :: lstfile, viewfile
 real :: temp1(dx,dy), temp2(dx,dy)
 real :: final_lst(dx,dy)
 real :: final_view(dx,dy)
