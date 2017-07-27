@@ -28,8 +28,8 @@ read(arg4,'(i1)') nfiles
 
 
 
-allocate(lstfiles(nfiles),stat=status1)
-allocate(viewfiles(nfiles),stat=status1)
+!allocate(lstfiles(nfiles),stat=status1)
+!allocate(viewfiles(nfiles),stat=status1)
 allocate(lst(dx,dy,nfiles),stat=status1)
 allocate(view(dx,dy,nfiles),stat=status1)
 
