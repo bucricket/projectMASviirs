@@ -47,6 +47,8 @@ do k = 1, nfiles
  !write(viewfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/view_angle_',yyyyddd,'_',arg4,'_',times(k),'.dat'
  write(lstfile,'(a)') lstfiles(k)
  write(viewfile,'(a)') viewfiles(k)
+ write(6,*) lstfile
+ write(6,*) viewfile
  open(10,file=lstfile,form='unformatted',access='direct',recl=dx*dy*4)
  open(11,file=viewfile,form='unformatted',access='direct',recl=dx*dy*4)
  read(10,rec=1) temp1
