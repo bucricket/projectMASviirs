@@ -715,7 +715,9 @@ def merge_lst(tile,year,doy):
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
             viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-            viewout.tofile(view_stack)
+#            viewout.tofile(view_stack)
+            with open(view_stack, 'wb') as fout:
+                fout.write(viewout.tostring())
 #            viewfiles.append(view_fn[:-3])
             
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
@@ -723,7 +725,9 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-            lstout.tofile(lst_stack)
+#            lstout.tofile(lst_stack)
+            with open(lst_stack, 'wb') as fout:
+                fout.write(lstout.tostring())
 #            lstfiles.append(lst_fn[:-3])
             
 #        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
@@ -751,7 +755,9 @@ def merge_lst(tile,year,doy):
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
             viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-            viewout.tofile(view_stack)
+#            viewout.tofile(view_stack)
+            with open(view_stack, 'wb') as fout:
+                fout.write(viewout.tostring())
 #            viewfiles.append(view_fn[:-3])
             
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
@@ -759,7 +765,9 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-            lstout.tofile(lst_stack)
+#            lstout.tofile(lst_stack)
+            with open(lst_stack, 'wb') as fout:
+                fout.write(lstout.tostring())
 #            lstfiles.append(lst_fn[:-3])
             
 #        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
