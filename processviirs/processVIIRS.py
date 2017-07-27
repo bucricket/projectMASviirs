@@ -657,7 +657,7 @@ def atmosCorrection(tile,year,doy):
         fn = filelist[i]
         time_str = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
         time=((int(time_str)/300)+1)*300
-        if (int(time_str)==2400):
+        if (time==2400):
             time=2100
         #======io filenames============================================
         tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (date,time))
