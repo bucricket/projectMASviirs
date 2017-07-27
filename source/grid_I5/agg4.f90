@@ -4,7 +4,7 @@ integer, parameter :: dx=15000, dy=15000
 real :: lai(dx,dy)
 real :: ilai(dx,dy)
 real :: counter(dx,dy)
-character(len=400) :: file2, file1, ofile1
+character(len=400) :: file2, file1, ofile
 integer, parameter :: ax=3750, ay=3750
 !integer (kind=1) :: agg(ax,ay)
 real :: agg(ax,ay)
