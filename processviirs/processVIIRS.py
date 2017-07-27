@@ -322,9 +322,10 @@ def regrid_I5(tile,year,doy):
         if night_flag == "Day":
             trad_sum_fn = os.path.join(grid_I5_path,'bt11_sum1_%03d_%s.dat' % (tile,time))
             trad_count_fn = os.path.join(grid_I5_path,'bt11_count1_%03d_%s.dat' % (tile,time))
-            subprocess.check_output(["%s" % grid_I5_SDR, "%d" % lat, "%d" %  lon,
+            out = subprocess.check_output(["%s" % grid_I5_SDR, "%d" % lat, "%d" %  lon,
                                      "%s" % i5_data, "%s" % latfile,
                                      "%s" % lonfile, "%s" % trad_sum_fn, "%s" % trad_count_fn])
+            print out
             #grid day view data
             view_sum_fn = os.path.join(grid_I5_path,'view_sum1_%03d_%s.dat' % (tile,time))
             view_count_fn = os.path.join(grid_I5_path,'view_count1_%03d_%s.dat' % (tile,time))
@@ -334,7 +335,7 @@ def regrid_I5(tile,year,doy):
     
             view_agg = os.path.join(agg_I5_path,"view_%s_%03d_%s.dat" % (date,tile,time))
             trad_agg_day = os.path.join(agg_I5_path,"day_bt11_%s_%03d_%s.dat" % (date,tile,time))
-            if os.path.exists(trad_agg_day):            
+            if os.path.exists(trad_count_fn):            
                 subprocess.check_output(["%s" % agg4,"%s" % trad_sum_fn,"%s" % trad_count_fn, "%s" % trad_agg_day ])
                 subprocess.check_output(["%s" % agg_view,"%s" % view_sum_fn,"%s" % view_count_fn, "%s" % view_agg ])
                 
@@ -356,7 +357,7 @@ def regrid_I5(tile,year,doy):
             view_agg = os.path.join(agg_I5_path,"view_%s_%03d_%s.dat" % (date,tile,time))
             trad_agg_night = os.path.join(agg_I5_path,"night_bt11_%s_%03d_%s.dat" % (date,tile,time))
             
-            if os.path.exists(trad_agg_night):
+            if os.path.exists(trad_count_fn_night):
                 subprocess.check_output(["%s" % agg4,"%s" % trad_sum_fn_night,"%s" % trad_count_fn_night, "%s" % trad_agg_night ])
                 subprocess.check_output(["%s" % agg_view,"%s" % view_sum_fn_night,"%s" % view_count_fn_night, "%s" % view_agg ])
 
@@ -699,7 +700,6 @@ def merge_lst(tile,year,doy):
     lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
     view_list_fn = os.path.join(merge_path,"view_files_T%03d.txt" % tile)
     filelist = glob.glob(os.path.join(tile_path,'day_bt_flag_%s*T%03d*.gz' % (date,tile)))
-    times = []
     lstfiles = []
     viewfiles = []
     nfiles = len(filelist)
@@ -726,7 +726,6 @@ def merge_lst(tile,year,doy):
     #===night=======
     lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
     filelist = glob.glob(os.path.join(tile_path,'night_bt_flag_%s*T%03d*.gz' % (date,tile)))
-    times = []
     nfiles = len(filelist)
     if nfiles > 0:
         for i in range(len(filelist)):
