@@ -2,13 +2,13 @@ program merge_day_overpass
 
 integer, parameter :: dx=3750, dy=3750
 !character (len=:), allocatable :: dir, arg6
-character(len=400) :: list_files,dir, arg6
-character(len=400) :: outlstfile, outviewfile, arg7, arg8
+character(len=400) :: list_lstfiles,list_viewfiles
+character(len=400) :: outlstfile, outviewfile
 character(len=4) :: arg2
 character(len=3) :: arg3
 character(len=1) :: arg4
 integer :: nfiles, doy, year, yyyyddd
-character(len=4), allocatable :: times(:)
+character(len=400), allocatable :: lstfiles(:),viewfiles(:)
 integer :: status1
 real, allocatable :: lst(:,:,:), view(:,:,:)
 character(len=400) :: lstfile, viewfile
@@ -19,30 +19,34 @@ integer :: test(1), ind
 integer :: min_index
 real :: min_view
 
-call getarg(1,list_files)
-call getarg(2,lstfile)
-call getarg(3,viewfile)
-call getarg(4,arg4)
-call getarg(5,outlstfile)
-call getarg(6,outviewfile)
+call getarg(1,list_lstfiles)
+call getarg(2,list_viewfiles)
+call getarg(3,arg4)
+call getarg(4,outlstfile)
+call getarg(5,outviewfile)
 read(arg4,'(i1)') nfiles
-write(6,*) yyyyddd, nfiles
 
 
-allocate(times(nfiles),stat=status1)
+
+allocate(lstfiles(nfiles),stat=status1)
+allocate(viewfiles(nfiles),stat=status1)
 allocate(lst(dx,dy,nfiles),stat=status1)
 allocate(view(dx,dy,nfiles),stat=status1)
-write(6,*) yyyyddd, nfiles
-open(10,file=trim(list_files)) 
-read(10,*) times
+
+open(10,file=trim(list_lstfiles)) 
+read(10,*) lstfiles
+close(10)
+
+open(10,file=trim(list_viewfiles)) 
+read(10,*) viewfiles
 close(10)
 
 !dir='/raid1/sport/people/chain/VIIRS_PROCESS/TILES/'
 do k = 1, nfiles
  !write(lstfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/lst_',yyyyddd,'_',arg4,'_',times(k),'.dat' 
  !write(viewfile,'(a,a,a,I7,a,a,a,a,a)') trim(dir),arg4,'/view_angle_',yyyyddd,'_',arg4,'_',times(k),'.dat'
- open(10,file=lstfile,form='unformatted',access='direct',recl=dx*dy*4)
- open(11,file=viewfile,form='unformatted',access='direct',recl=dx*dy*4)
+ open(10,file=lstfiles(k),form='unformatted',access='direct',recl=dx*dy*4)
+ open(11,file=viewfiles(k),form='unformatted',access='direct',recl=dx*dy*4)
  read(10,rec=1) temp1
  read(11,rec=1) temp2
  close(10)

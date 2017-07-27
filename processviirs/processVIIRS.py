@@ -697,24 +697,29 @@ def merge_lst(tile,year,doy):
 
     #======day=============================
     lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
+    view_list_fn = os.path.join(merge_path,"view_files_T%03d.txt" % tile)
     filelist = glob.glob(os.path.join(tile_path,'day_bt_flag_%s*T%03d*.gz' % (date,tile)))
     times = []
+    lstfiles = []
+    viewfiles = []
     nfiles = len(filelist)
     if nfiles > 0:
         for i in range(len(filelist)):
             fn = filelist[i]
             time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
-            times.append(time)
+#            times.append(time)
             view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
+            viewfiles.append(view_fn[:-3])
             gunzip(view_fn)
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
+            lstfiles.append(lst_fn[:-3])
             gunzip(lst_fn)
-        np.savetxt(lst_list_fn,times,fmt="%s" )
+        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
+        np.savetxt(view_list_fn,viewfiles,fmt="%s")
         out_lst_fn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
         out_view_fn = os.path.join(tile_path,"FINAL_DAY_VIEW_%s_T%03d.dat" % (date,tile))
-        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % lst_fn[:-3], 
-                                 "%s" % view_fn[:-3],"%d" % nfiles,
-                                 "%s" % out_lst_fn, "%s" % out_view_fn])
+        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
+                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
@@ -727,18 +732,20 @@ def merge_lst(tile,year,doy):
         for i in range(len(filelist)):
             fn = filelist[i]
             time = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
-            times.append(time)
+#            times.append(time)
             view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
+            viewfiles.append(view_fn[:-3])
             gunzip(view_fn)
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
+            lstfiles.append(lst_fn[:-3])
             gunzip(lst_fn)
-        np.savetxt(lst_list_fn,times,fmt="%s" )
+        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
+        np.savetxt(view_list_fn,viewfiles,fmt="%s")
         out_lst_fn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.dat" % (date,tile))
         out_view_fn = os.path.join(tile_path,"FINAL_NIGHT_VIEW_%s_T%03d.dat" % (date,tile))
 
-        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % lst_fn[:-3], 
-                                 "%s" % view_fn[:-3],"%d" % nfiles,
-                                 "%s" % out_lst_fn, "%s" % out_view_fn])
+        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
+                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
@@ -821,15 +828,15 @@ def main():
 
 #=====convert to geotiff=================
 #
-#ALEXIshape = [3750,3750]
+ALEXIshape = [3750,3750]
 #ALEXIshape = [2880,1200]
-#ALEXIres = [0.004,0.004]
+ALEXIres = [0.004,0.004]
 #ALEXIres = [0.125,0.125]
-#row = tile/24
-#col = tile-(row*24)
-#ULlat= (75.-(row)*15.)
-#ULlon=(-180.+(col-1.)*15.)      
-#inUL = [ULlon,ULlat]  
+row = tile/24
+col = tile-(row*24)
+ULlat= (75.-(row)*15.)
+ULlon=(-180.+(col-1.)*15.)      
+inUL = [ULlon,ULlat]  
 #inUL = [-180., 59.95]
 #tile_path = os.path.join(base,"TILES","T%03d" % tile) 
 #tile_path = os.path.join(base,"overpass_corr")
@@ -842,5 +849,5 @@ def main():
 #        inFile = fn[:-3]
 #    else:
 #        inFile = fn
-#    convertBin2tif(inFile,inUL,ALEXIshape,ALEXIres)
+    convertBin2tif(inFile,inUL,ALEXIshape,ALEXIres)
                  
