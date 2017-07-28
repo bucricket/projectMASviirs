@@ -738,7 +738,15 @@ def merge_lst(tile,year,doy):
         viewmin = np.nanmin(viewout,axis=2)
         viewmin[np.isnan(viewmin)]=-9999.
         view = np.array(viewmin,dtype='Float32')
+        aa = np.reshape(viewout,[3750*3750,nfiles])
+        viewdf = pd.DataFrame(aa)
+        aa = np.reshape(lstout,[3750*3750,nfiles])
+        c = np.array(viewdf.idxmin(axis=1, skipna=-9999.))
+        lst =[]
+        for i in range(len(c)):
+            lst.append(aa[i,c[i]])
         lst = lstout[view==viewmin]
+        lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
 #            lstout.tofile(lst_stack)
 #            with open(lst_stack, 'wb') as fout:
@@ -791,7 +799,15 @@ def merge_lst(tile,year,doy):
         viewmin = np.nanmin(viewout,axis=2)
         viewmin[np.isnan(viewmin)]=-9999.
         view = np.array(viewmin,dtype='Float32')
+        aa = np.reshape(viewout,[3750*3750,nfiles])
+        viewdf = pd.DataFrame(aa)
+        aa = np.reshape(lstout,[3750*3750,nfiles])
+        c = np.array(viewdf.idxmin(axis=1, skipna=-9999.))
+        lst =[]
+        for i in range(len(c)):
+            lst.append(aa[i,c[i]])
         lst = lstout[view==viewmin]
+        lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
         
 #            lstout.tofile(lst_stack)
