@@ -727,7 +727,9 @@ def merge_lst(tile,year,doy):
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         view = viewout.min(axis=2)
+        view = np.array(view,dtype='Float32')
         lst = lstout.min(axis=2)
+        lst = np.array(lst,dtype='Float32')
 #            lstout.tofile(lst_stack)
 #            with open(lst_stack, 'wb') as fout:
 #                fout.write(lstout.tostring())
@@ -774,7 +776,10 @@ def merge_lst(tile,year,doy):
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         view = viewout.min(axis=2)
+        view = np.array(view,dtype='Float32')
         lst = lstout.min(axis=2)
+        lst = np.array(lst,dtype='Float32')
+        
 #            lstout.tofile(lst_stack)
 #            with open(lst_stack, 'wb') as fout:
 #                fout.write(lstout.tostring())
