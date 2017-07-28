@@ -726,9 +726,11 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-        view = viewout.min(axis=2)
-        view = np.array(view,dtype='Float32')
-        lst = lstout.min(axis=2)
+        viewout[viewout==-9999.]=np.nan
+        viewmin = viewout.nanmin(axis=2)
+        viewmin[np.isnan(viewmin)]=-9999.
+        view = np.array(viewmin,dtype='Float32')
+        lst = lstout[view==viewmin]
         lst = np.array(lst,dtype='Float32')
 #            lstout.tofile(lst_stack)
 #            with open(lst_stack, 'wb') as fout:
@@ -775,9 +777,11 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-        view = viewout.min(axis=2)
-        view = np.array(view,dtype='Float32')
-        lst = lstout.min(axis=2)
+        viewout[viewout==-9999.]=np.nan
+        viewmin = viewout.nanmin(axis=2)
+        viewmin[np.isnan(viewmin)]=-9999.
+        view = np.array(viewmin,dtype='Float32')
+        lst = lstout[view==viewmin]
         lst = np.array(lst,dtype='Float32')
         
 #            lstout.tofile(lst_stack)
