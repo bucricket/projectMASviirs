@@ -690,6 +690,14 @@ def atmosCorrection(tile,year,doy):
 def merge_lst(tile,year,doy):
     merge = "merge_overpass"
     date = "%d%03d" % (year,doy)
+    #=====georeference information=====
+    row = tile/24
+    col = tile-(row*24)
+    ULlat= (75.-(row)*15.)
+    ULlon=(-180.+(col-1.)*15.)      
+    inUL = [ULlon,ULlat] 
+    ALEXIshape = [3750,3750]
+    ALEXIres = [0.004,0.004]
     #=====create times text file=======
     merge_path = os.path.join(processing_path,"MERGE_DAY_NIGHT")
     if not os.path.exists(merge_path):
@@ -727,7 +735,7 @@ def merge_lst(tile,year,doy):
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         viewout[viewout==-9999.]=np.nan
-        viewmin = viewout.nanmin(axis=2)
+        viewmin = np.nanmin(viewout,axis=2)
         viewmin[np.isnan(viewmin)]=-9999.
         view = np.array(viewmin,dtype='Float32')
         lst = lstout[view==viewmin]
@@ -749,6 +757,8 @@ def merge_lst(tile,year,doy):
         lst[view>60] = -9999.
         view.tofile(out_view_fn)
         lst.tofile(out_lst_fn)
+        convertBin2tif(out_view_fn[:-4]+'.tif',inUL,ALEXIshape,ALEXIres)
+        convertBin2tif(out_lst_fn[:-4]+'.tif',inUL,ALEXIshape,ALEXIres)
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
@@ -778,7 +788,7 @@ def merge_lst(tile,year,doy):
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         viewout[viewout==-9999.]=np.nan
-        viewmin = viewout.nanmin(axis=2)
+        viewmin = np.nanmin(viewout,axis=2)
         viewmin[np.isnan(viewmin)]=-9999.
         view = np.array(viewmin,dtype='Float32')
         lst = lstout[view==viewmin]
@@ -801,6 +811,8 @@ def merge_lst(tile,year,doy):
         lst[view>60] = -9999.
         view.tofile(out_view_fn)
         lst.tofile(out_lst_fn)
+        convertBin2tif(out_view_fn[:-4]+'.tif',inUL,ALEXIshape,ALEXIres)
+        convertBin2tif(out_lst_fn[:-4]+'.tif',inUL,ALEXIshape,ALEXIres)
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
