@@ -741,7 +741,7 @@ def merge_lst(tile,year,doy):
         aa = np.reshape(viewout,[3750*3750,nfiles])
         aa[aa==-9999.]=np.nan
         viewdf = pd.DataFrame(aa)
-        view = viewdf.min(aa,skipna=True)
+        view = viewdf.min(axis=1)
         viewmin = np.reshape(view,[3750,3750])
         view = np.array(viewmin,dtype='Float32')
         
@@ -808,7 +808,7 @@ def merge_lst(tile,year,doy):
         aa = np.reshape(viewout,[3750*3750,nfiles])
         aa[aa==-9999.]=np.nan
         viewdf = pd.DataFrame(aa)
-        view = viewdf.min(aa,skipna=True)
+        view = viewdf.min(axis=1)
         viewmin = np.reshape(view,[3750,3750])
         view = np.array(viewmin,dtype='Float32')
         
