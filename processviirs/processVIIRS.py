@@ -734,18 +734,24 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-        viewout[viewout==-9999.]=np.nan
-        viewmin = np.nanmin(viewout,axis=2)
-        viewmin[np.isnan(viewmin)]=-9999.
-        view = np.array(viewmin,dtype='Float32')
+#        viewout[viewout==-9999.]=np.nan
+#        viewmin = np.nanmin(viewout,axis=2)
+#        viewmin[np.isnan(viewmin)]=-9999.
+        
         aa = np.reshape(viewout,[3750*3750,nfiles])
+        aa[aa==-9999.]=np.nan
         viewdf = pd.DataFrame(aa)
+        view = viewdf.min(aa,skipna=True)
+        viewmin = np.reshape(view,[3750,3750])
+        view = np.array(viewmin,dtype='Float32')
+        
         aa = np.reshape(lstout,[3750*3750,nfiles])
-        c = np.array(viewdf.idxmin(axis=1, skipna=-9999.))
+        
+        c = np.array(viewdf.idxmin(axis=1))
         lst =[]
         for i in range(len(c)):
             lst.append(aa[i,c[i]])
-        lst = lstout[view==viewmin]
+#        lst = lstout[view==viewmin]
         lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
 #            lstout.tofile(lst_stack)
@@ -795,18 +801,24 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-        viewout[viewout==-9999.]=np.nan
-        viewmin = np.nanmin(viewout,axis=2)
-        viewmin[np.isnan(viewmin)]=-9999.
-        view = np.array(viewmin,dtype='Float32')
+#        viewout[viewout==-9999.]=np.nan
+#        viewmin = np.nanmin(viewout,axis=2)
+#        viewmin[np.isnan(viewmin)]=-9999.
+        
         aa = np.reshape(viewout,[3750*3750,nfiles])
+        aa[aa==-9999.]=np.nan
         viewdf = pd.DataFrame(aa)
+        view = viewdf.min(aa,skipna=True)
+        viewmin = np.reshape(view,[3750,3750])
+        view = np.array(viewmin,dtype='Float32')
+        
         aa = np.reshape(lstout,[3750*3750,nfiles])
-        c = np.array(viewdf.idxmin(axis=1, skipna=-9999.))
+        
+        c = np.array(viewdf.idxmin(axis=1))
         lst =[]
         for i in range(len(c)):
             lst.append(aa[i,c[i]])
-        lst = lstout[view==viewmin]
+#        lst = lstout[view==viewmin]
         lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
         
