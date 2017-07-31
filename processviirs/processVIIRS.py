@@ -734,33 +734,20 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-#        viewout[viewout==-9999.]=np.nan
-#        viewmin = np.nanmin(viewout,axis=2)
-#        viewmin[np.isnan(viewmin)]=-9999.
         
         aa = np.reshape(viewout,[3750*3750,nfiles])
-        aa[aa==-9999.]=np.nan
-        viewdf = pd.DataFrame(aa)
-        view = viewdf.min(axis=1)
+        aa[aa==-9999.]=9999.
+        view = aa.min(axis=2)
+        indcol = np.argmin(aa,axis=1)
+        indrow = range(0,len(indcol))
         viewmin = np.reshape(view,[3750,3750])
+        viewmin[viewmin==9999.]=-9999.
         view = np.array(viewmin,dtype='Float32')
         
         aa = np.reshape(lstout,[3750*3750,nfiles])
-        
-        c = np.array(viewdf.idxmin(axis=1))
-        lst =[]
-        for i in range(len(c)):
-            lst.append(aa[i,c[i]])
-#        lst = lstout[view==viewmin]
+        lst = aa[indrow,indcol]
         lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
-#            lstout.tofile(lst_stack)
-#            with open(lst_stack, 'wb') as fout:
-#                fout.write(lstout.tostring())
-#            lstfiles.append(lst_fn[:-3])
-            
-#        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
-#        np.savetxt(view_list_fn,viewfiles,fmt="%s")
         out_lst_fn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
         out_view_fn = os.path.join(tile_path,"FINAL_DAY_VIEW_%s_T%03d.dat" % (date,tile))
 #        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
@@ -801,36 +788,21 @@ def merge_lst(tile,year,doy):
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
-#        viewout[viewout==-9999.]=np.nan
-#        viewmin = np.nanmin(viewout,axis=2)
-#        viewmin[np.isnan(viewmin)]=-9999.
-        
         aa = np.reshape(viewout,[3750*3750,nfiles])
-        aa[aa==-9999.]=np.nan
-        viewdf = pd.DataFrame(aa)
-        view = viewdf.min(axis=1)
+        aa[aa==-9999.]=9999.
+        view = aa.min(axis=2)
+        indcol = np.argmin(aa,axis=1)
+        indrow = range(0,len(indcol))
         viewmin = np.reshape(view,[3750,3750])
+        viewmin[viewmin==9999.]=-9999.
         view = np.array(viewmin,dtype='Float32')
         
         aa = np.reshape(lstout,[3750*3750,nfiles])
-        
-        c = np.array(viewdf.idxmin(axis=1))
-        lst =[]
-        for i in range(len(c)):
-            lst.append(aa[i,c[i]])
-#        lst = lstout[view==viewmin]
+        lst = aa[indrow,indcol]
         lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
-        
-#            lstout.tofile(lst_stack)
-#            with open(lst_stack, 'wb') as fout:
-#                fout.write(lstout.tostring())
-#            lstfiles.append(lst_fn[:-3])
-            
-#        np.savetxt(lst_list_fn,lstfiles,fmt="%s")
-#        np.savetxt(view_list_fn,viewfiles,fmt="%s")
-        out_lst_fn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.dat" % (date,tile))
-        out_view_fn = os.path.join(tile_path,"FINAL_NIGHT_VIEW_%s_T%03d.dat" % (date,tile))
+        out_lst_fn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
+        out_view_fn = os.path.join(tile_path,"FINAL_DAY_VIEW_%s_T%03d.dat" % (date,tile))
 #        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
 #                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
 #        subprocess.check_output(["%s" % merge,"%s" % lst_stack, "%s" % view_stack, 
