@@ -737,7 +737,7 @@ def merge_lst(tile,year,doy):
         
         aa = np.reshape(viewout,[3750*3750,nfiles])
         aa[aa==-9999.]=9999.
-        view = aa.min(axis=2)
+        view = aa.min(axis=1)
         indcol = np.argmin(aa,axis=1)
         indrow = range(0,len(indcol))
         viewmin = np.reshape(view,[3750,3750])
@@ -790,7 +790,7 @@ def merge_lst(tile,year,doy):
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         aa = np.reshape(viewout,[3750*3750,nfiles])
         aa[aa==-9999.]=9999.
-        view = aa.min(axis=2)
+        view = aa.min(axis=1)
         indcol = np.argmin(aa,axis=1)
         indrow = range(0,len(indcol))
         viewmin = np.reshape(view,[3750,3750])
