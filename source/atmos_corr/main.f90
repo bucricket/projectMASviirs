@@ -54,6 +54,8 @@ close(11)
 
 write(6,*) lookup_i(3001,3001), lookup_j(3001,3001)
 write(6,*) tsfc(lookup_i(3001,3001), lookup_j(3001,3001))
+write(6,*) qsfc(lookup_i(3001,3001), lookup_j(3001,3001))
+write(6,*) psfc(lookup_i(3001,3001), lookup_j(3001,3001))
 
 !write(ifile,'(a,a,a)') basedir,'/overpass_corr/TRAD1_',tile_num 
 open(10,file=tradfile,form='unformatted',access='direct',recl=ilg*jlg*4)
