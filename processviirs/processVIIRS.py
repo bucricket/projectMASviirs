@@ -758,8 +758,8 @@ def merge_lst(tile,year,doy):
         lst[view>60] = -9999.
         view.tofile(out_view_fn)
         lst.tofile(out_lst_fn)
-        convertBin2tif(out_view_fn[:-4]+'.tif',inUL,ALEXIshape,ALEXIres)
-        convertBin2tif(out_lst_fn[:-4]+'.tif',inUL,ALEXIshape,ALEXIres)
+        convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres)
+        convertBin2tif(out_lst_fn,inUL,ALEXIshape,ALEXIres)
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
@@ -811,8 +811,8 @@ def merge_lst(tile,year,doy):
         lst[view>60] = -9999.
         view.tofile(out_view_fn)
         lst.tofile(out_lst_fn)
-        convertBin2tif(out_view_fn[:-4]+'.tif',inUL,ALEXIshape,ALEXIres)
-        convertBin2tif(out_lst_fn[:-4]+'.tif',inUL,ALEXIshape,ALEXIres)
+        convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres)
+        convertBin2tif(out_lst_fn,inUL,ALEXIshape,ALEXIres)
         gzipped(out_lst_fn)
         gzipped(out_view_fn)
     
