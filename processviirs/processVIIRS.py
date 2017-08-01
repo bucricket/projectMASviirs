@@ -728,7 +728,7 @@ def merge_lst(tile,year,doy):
             gunzip(view_fn)
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
-            viewout[:,:,i]= read_data.reshape([3750,3750])
+            viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         
 #            view.tofile(view_stack)
 #            with open(view_stack, 'wb') as fout:
@@ -739,7 +739,7 @@ def merge_lst(tile,year,doy):
             gunzip(lst_fn)
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
-            lstout[:,:,i]= read_data.reshape([3750,3750])
+            lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         
         aa = np.reshape(viewout,[3750*3750,nfiles])
         aa[aa==-9999.]=9999.
@@ -784,7 +784,7 @@ def merge_lst(tile,year,doy):
             gunzip(view_fn)
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
-            viewout[:,:,i]= read_data.reshape([3750,3750])
+            viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         
 #            view.tofile(view_stack)
 #            with open(view_stack, 'wb') as fout:
@@ -795,7 +795,7 @@ def merge_lst(tile,year,doy):
             gunzip(lst_fn)
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
-            lstout[:,:,i]= read_data.reshape([3750,3750])
+            lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         aa = np.reshape(viewout,[3750*3750,nfiles])
         aa[aa==-9999.]=9999.
         view = aa.min(axis=1)
@@ -815,8 +815,8 @@ def merge_lst(tile,year,doy):
 #                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
 #        subprocess.check_output(["%s" % merge,"%s" % lst_stack, "%s" % view_stack, 
 #                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
-        view[view>60]= -9999.
         lst[view>60] = -9999.
+        view[view>60]= -9999.
         view.tofile(out_view_fn)
         lst.tofile(out_lst_fn)
         convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres)
