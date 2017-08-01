@@ -645,7 +645,7 @@ def atmosCorrection(tile,year,doy):
                                        "%s" % presfile, "%s" % qsfcfile,
                                        "%s" % icoordpath, "%s" % jcoordpath,
                                        "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
-#        print out
+        print out
         
         gzipped(outfn)
 #        os.remove(raw_trad_fn)
