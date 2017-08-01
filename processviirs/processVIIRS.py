@@ -137,6 +137,7 @@ def convertBin2tif(inFile,inUL,shape,res):
     outFormat = gdal.GDT_Float32
     read_data = np.fromfile(inFile, dtype=np.float32)
     dataset = np.flipud(read_data.reshape([shape[0],shape[1]]))
+    dataset = read_data.reshape([shape[0],shape[1]])
 #    dataset = np.array(dataset*1000,dtype='uint16')
     dataset = np.array(dataset,dtype='Float32')
     outTif = inFile[:-4]+".tif"
