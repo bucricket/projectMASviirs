@@ -744,8 +744,8 @@ def merge_lst(tile,year,doy):
         viewmin[viewmin==9999.]=-9999.
         view = np.array(viewmin,dtype='Float32')
         
-        aa = np.reshape(lstout,[3750*3750,nfiles])
-        lst = aa[indrow,indcol]
+        bb = np.reshape(lstout,[3750*3750,nfiles])
+        lst = bb[indrow,indcol]
         lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
         out_lst_fn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
@@ -799,8 +799,8 @@ def merge_lst(tile,year,doy):
         viewmin[viewmin==9999.]=-9999.
         view = np.array(viewmin,dtype='Float32')
         
-        aa = np.reshape(lstout,[3750*3750,nfiles])
-        lst = aa[indrow,indcol]
+        bb = np.reshape(lstout,[3750*3750,nfiles])
+        lst = bb[indrow,indcol]
         lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
         out_lst_fn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
