@@ -728,7 +728,7 @@ def merge_lst(tile,year,doy):
             gunzip(view_fn)
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
-            viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+            viewout[:,:,i]= read_data.reshape([3750,3750])
         
 #            view.tofile(view_stack)
 #            with open(view_stack, 'wb') as fout:
@@ -739,7 +739,7 @@ def merge_lst(tile,year,doy):
             gunzip(lst_fn)
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
-            lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+            lstout[:,:,i]= read_data.reshape([3750,3750])
         
         aa = np.reshape(viewout,[3750*3750,nfiles])
         aa[aa==-9999.]=9999.
@@ -784,7 +784,7 @@ def merge_lst(tile,year,doy):
             gunzip(view_fn)
             view_stack = os.path.join(tile_path,"view_stack.dat")
             read_data = np.fromfile(view_fn[:-3], dtype=np.float32)
-            viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+            viewout[:,:,i]= read_data.reshape([3750,3750])
         
 #            view.tofile(view_stack)
 #            with open(view_stack, 'wb') as fout:
@@ -795,7 +795,7 @@ def merge_lst(tile,year,doy):
             gunzip(lst_fn)
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
-            lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+            lstout[:,:,i]= read_data.reshape([3750,3750])
         aa = np.reshape(viewout,[3750*3750,nfiles])
         aa[aa==-9999.]=9999.
         view = aa.min(axis=1)
@@ -904,15 +904,16 @@ def main():
 #=====convert to geotiff=================
 #
 #ALEXIshape = [3750,3750]
-#ALEXIshape = [2880,1200]
+ALEXIshape = [2880,1200]
+ALEXIshape = [720,1440]
 #ALEXIres = [0.004,0.004]
-#ALEXIres = [0.125,0.125]
+ALEXIres = [0.25,0.25]
 #row = tile/24
 #col = tile-(row*24)
 #ULlat= (75.-(row)*15.)
 #ULlon=(-180.+(col-1.)*15.)      
 #inUL = [ULlon,ULlat]  
-#inUL = [-180., 59.95]
+inUL = [-180., 90.0]
 #tile_path = os.path.join(base,"TILES","T%03d" % tile) 
 #tile_path = os.path.join(base,"overpass_corr")
 #tile_path = os.path.join(base,"CFSR","output","2016")
