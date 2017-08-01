@@ -767,6 +767,8 @@ def merge_lst(tile,year,doy):
 #    lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
     filelist = glob.glob(os.path.join(tile_path,'night_bt_flag_%s*T%03d*.gz' % (date,tile)))
     nfiles = len(filelist)
+    viewout = np.empty([3750,3750,nfiles])    
+    lstout = np.empty([3750,3750,nfiles])
     if nfiles > 0:
         for i in range(len(filelist)):
             fn = filelist[i]
