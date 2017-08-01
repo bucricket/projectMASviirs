@@ -639,7 +639,13 @@ def atmosCorrection(tile,year,doy):
         subprocess.check_output(["%s" % offset, "%d" % year, "%03d" %  doy, "%s" % time_str,
                                      "T%03d" % tile, "%s" % ztime_fn, "%s" % raw_trad_fn,
                                      "%s" % dtrad_fn, "%s" % trad_fn])
+
         outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
+        cmd = "%s %s %s %s %s %s %s %s %s %s %s"% (run_correction,tprof,qprof,
+                                                    tsfcfile,presfile,qsfcfile,
+                                                    icoordpath,jcoordpath,trad_fn,
+                                                    out_view_fn,outfn)
+        print cmd
         out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
                                        "%s" % qprof,"%s" % tsfcfile,
                                        "%s" % presfile, "%s" % qsfcfile,
