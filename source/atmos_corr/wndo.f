@@ -311,7 +311,7 @@ cmca      CORR=SURT(I)-TRAD
       DO 760 I=1,NSURT
       grndrad=(plank(surt(i),anv)-sky(m)*(1.0+trans*(1.0-epsln)))
      &         /trans
-     print*,'inLST sky trans', plank(surt(i),anv),sky(m),trans
+      print*,'surt sky trans ', plank(surt(i),anv),sky(m),trans
       if (trans.le.0.001) grndrad=0.0
       if (grndrad.le.0.0) then
 !        iflag(ia,ja)=2                      !cloudy point
