@@ -268,6 +268,7 @@ C  RADIATIVE TRANSFER INTEGRATION
 C
       CS=COS(ANGLE/57.29)
       if (ia.eq.1001 .and. ja.eq.2001) then
+       print*,'EI = ',EI(1), 'TI = ', TI(1)
        print*,'OPTD = ',OPTD, 'trans = ', EXP(-OPTD/CS)
       endif
       TRANS=EXP(-OPTD/CS)
