@@ -243,10 +243,10 @@ C  LAYER OPTICAL DEPTH, EMISSION AT GIVEN LEVELS
       EMIS(I)=0.5*(PLANK(TT(I),anv)+PLANK(TT(I+1),anv))
 C  SIMPSON'S RULE INTEGRATION (3 POINTS)
 C
-      TAU(I)=(P(I)-P(I+1))*(DTAUDP(ANV,TT(I),E(I),P(I))+ &
-      DTAUDP(ANV,TT(I+1),E(I+1),P(I+1)) + 4.*  &
-      DTAUDP(ANV,(TT(I)+TT(I+1))/2.,(E(I)+E(I+1))/2.,(P(I)+P(I+1))/2.) &
-      )/6.
+      TAU(I)=(P(I)-P(I+1))*(DTAUDP(ANV,TT(I),E(I),P(I))+
+     xDTAUDP(ANV,TT(I+1),E(I+1),P(I+1)) + 4.*
+     xDTAUDP(ANV,(TT(I)+TT(I+1))/2.,(E(I)+E(I+1))/2.,(P(I)+P(I+1))/2.)
+     x)/6.
       OPTD=OPTD+TAU(I)
       IF (ABS(P(I+1)-PI(J+1)).GT..01) GO TO 620
       J = J +1
