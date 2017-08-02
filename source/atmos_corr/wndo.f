@@ -268,7 +268,7 @@ C  RADIATIVE TRANSFER INTEGRATION
 C
       CS=COS(ANGLE/57.29)
       if (ia.eq.1001 .and. ja.eq.2001) then
-       print*,'CS = ',cs, 'Angle = ', angle
+       print*,'OPTD = ',OPTD, 'trans = ', EXP(-OPTD/CS)
       endif
       TRANS=EXP(-OPTD/CS)
 C     720 LOOP COMPUTES UPWARD SKY RADIANCE AT EACH LEVEL
