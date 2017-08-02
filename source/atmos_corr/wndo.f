@@ -311,7 +311,6 @@ cmca      CORR=SURT(I)-TRAD
       DO 760 I=1,NSURT
       grndrad=(plank(surt(i),anv)-sky(m)*(1.0+trans*(1.0-epsln)))
      &         /trans
-      print*,'surt sky trans ', plank(surt(i),anv),sky(m),trans
       if (trans.le.0.001) grndrad=0.0
       if (grndrad.le.0.0) then
 !        iflag(ia,ja)=2                      !cloudy point
@@ -320,6 +319,7 @@ cmca      CORR=SURT(I)-TRAD
       trad=aplank(grndrad/epsln,anv)
       corr=trad-surt(i)
       if (ia.eq.1001  .and. ja.eq.2001) then
+		print*,'surt sky trans ', plank(surt(i),anv),sky(m),trans
         print*,'trad corr epsln grndrad ',trad,corr,radini(ia,ja)
       endif
 C
