@@ -248,6 +248,9 @@ C
      xDTAUDP(ANV,(TT(I)+TT(I+1))/2.,(E(I)+E(I+1))/2.,(P(I)+P(I+1))/2.)
      x)/6.
       OPTD=OPTD+TAU(I)
+    	if (ia.eq.1001.and.ja.eq.2001) then
+          write(6,*)I,J,OPTD,TAU(I),EMIS(I),P(I),E(I),TT(I)
+        endif
       IF (ABS(P(I+1)-PI(J+1)).GT..01) GO TO 620
       J = J +1
       EGR=(EI(J+1)-EI(J))/(PI(J+1)-PI(J))
