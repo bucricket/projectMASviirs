@@ -36,7 +36,7 @@ read(10,rec=1) theta
 read(11,rec=1) spfh
 read(12,rec=1) tsfc
 read(13,rec=1) psfc
-read(14,rec=1) qsfc
+read(14,rec=1) qsfc/1000.  ! for testing
 close(10)
 close(11)
 close(12)
