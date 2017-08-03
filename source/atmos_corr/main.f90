@@ -12,6 +12,7 @@ character(len=400) :: iptfile, jptfile, arg5, outfile, arg6, basedir
 character(len=400) :: tprof, qprof, tsfcfile, presfile, qsfcfile,tradfile,viewfile
 integer :: tindex
 character(len=255) :: ifile
+real :: qsfc1(ci,cj)
 
 call getarg(1,tprof)
 call getarg(2,qprof)
@@ -36,7 +37,7 @@ read(10,rec=1) theta
 read(11,rec=1) spfh
 read(12,rec=1) tsfc
 read(13,rec=1) psfc
-read(14,rec=1) qsfc/1000.  ! for testing
+read(14,rec=1) qsfc1
 close(10)
 close(11)
 close(12)
@@ -71,6 +72,7 @@ write(6,*) radini(3001,3001), satang(3001,3001)
 tc15(:,:) = -9999.
 tc55(:,:) = -9999.
 lst(:,:) = -9999.
+qsfc = qsfc/1000.
 !call fsin
 call wndo
 
