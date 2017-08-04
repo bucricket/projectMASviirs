@@ -3,58 +3,36 @@ program build_cubist_model
 integer, parameter :: dx=3750, dy=3750
 real :: latn(dx,dy), dtrad(dx,dy), day(dx,dy), night(dx,dy)
 real :: dtime(dx,dy), lai(dx,dy), terrain(dx,dy)
-character(len=4) :: arg1,arg3
-character(len=3) :: arg2
-character(len=255) :: arg4, basedir
-!character (len=:), allocatable :: basedir
-integer :: year, doy, yyyyddd, riseddd
-character(len=255) :: ifile1, ifile2, ifile3, ifile4, ifile5, ifile6, ofile1
+character(len=400) :: precip_fn, fmax_fn, terrain_fn, daylst_fn, nightlst_fn
+character(len=400) :: lai_fn, dtime_fn, out_fn
 real :: predict(dx,dy)
 real :: precip(dx,dy), fmax(dx,dy)
 real :: fc(dx,dy)
-integer :: laiddd, nweek1, cday, offset, rday
 
-call getarg(1,arg1)
-call getarg(2,arg2)
-call getarg(3,arg3)
-call getarg(4,arg4)
-read(arg1,'(i4)') year
-read(arg2,'(i3)') doy
-yyyyddd=year*1000+doy
-basedir=trim(arg4)
 
-nweek1=(doy-1)/7.
-cday=nweek1*7.
-offset=int((doy-cday)/7.)
-rday=int(((offset+nweek1)*7)+1)
-riseddd=2014*1000+rday
+call getarg(1,precip_fn)
+call getarg(2,fmax_fn)
+call getarg(3,terrain_fn)
+call getarg(4,daylst_fn)
+call getarg(5,nightlst_fn)
+call getarg(6,lai_fn)
+call getarg(7,dtime_fn)
+call getarg(8,out_fn)
 
-write(ifile1,'(a,a,a,a)') basedir,'/STATIC/PRECIP/tiles/PRECIP_',arg3,'.dat'
-write(ifile2,'(a,a,a,a)') basedir,'/STATIC/FMAX/tiles/FMAX_',arg3,'.dat'
-open(10,file=ifile1,form='unformatted',access='direct',recl=dx*dy*4)
-open(11,file=ifile2,form='unformatted',access='direct',recl=dx*dy*4)
+
+open(10,file=precip_fn,form='unformatted',access='direct',recl=dx*dy*4)
+open(11,file=fmax_fn,form='unformatted',access='direct',recl=dx*dy*4)
 read(10,rec=1) precip
 read(11,rec=1) fmax
 close(10)
 close(11)
 
-nweek1=(doy-1)/7.
-cday=nweek1*8.
-offset=int((doy-cday)/7.)
-rday=int(((offset+nweek1)*8)+1)
-laiddd=year*1000+rday
 
-write(ifile1,'(a,a,a,a)') basedir,'/STATIC/TERRAIN_SD/tiles/TERRAIN_',arg3,'.dat'
-write(ifile2,'(a,a,a,a,I7,a,a,a)') basedir,'/TILES/',arg3,'/FINAL_DAY_LST_',yyyyddd,'_',arg3,'.dat'
-write(ifile3,'(a,a,a,a,I7,a,a,a)') basedir,'/TILES/',arg3,'/FINAL_NIGHT_LST_',yyyyddd,'_',arg3,'.dat'
-write(ifile4,'(a,a,I7,a,a,a)') basedir,'/STATIC/LAI/tiles/MLAI_',laiddd,'_',arg3,'.dat'
-write(ifile5,'(a,a,I7,a,a,a)') basedir,'/STATIC/DTIME/tiles/DTIME_',riseddd,'_',arg3,'.dat'
-
-open(10,file=ifile1,form='unformatted',access='direct',recl=dx*dy*4)
-open(11,file=ifile2,form='unformatted',access='direct',recl=dx*dy*4)
-open(12,file=ifile3,form='unformatted',access='direct',recl=dx*dy*4)
-open(13,file=ifile4,form='unformatted',access='direct',recl=dx*dy*4)
-open(14,file=ifile5,form='unformatted',access='direct',recl=dx*dy*4)
+open(10,file=terrain_fn,form='unformatted',access='direct',recl=dx*dy*4)
+open(11,file=daylst_fn,form='unformatted',access='direct',recl=dx*dy*4)
+open(12,file=nightlst_fn,form='unformatted',access='direct',recl=dx*dy*4)
+open(13,file=lai_fn,form='unformatted',access='direct',recl=dx*dy*4)
+open(14,file=dtime_fn,form='unformatted',access='direct',recl=dx*dy*4)
 read(10,rec=1) terrain
 read(11,rec=1) day
 read(12,rec=1) night
@@ -144,8 +122,7 @@ endif
 enddo
 enddo
 
-write(ifile1,'(a,a,a,a)') basedir,'/PROCESSING/DTRAD_PREDICTION/comp1_',arg3,'.dat'
-open(10,file=ifile1,form='unformatted',access='direct',recl=dx*dy*4)
+open(10,file=out_fn,form='unformatted',access='direct',recl=dx*dy*4)
 write(10,rec=1) latn
 close(10)
 

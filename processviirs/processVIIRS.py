@@ -849,27 +849,65 @@ def pred_dtrad(tile,year,doy):
     files2unzip = glob.glob(os.path.join(tile_path,"*LST_%s*.gz" % date))
     for fn in files2unzip:
         gunzip(fn)
+            
+    dtimedates = np.array(range(1,366,7))
+    rday = dtimedates[dtimedates>=221][0]
+    riseddd="%d%03d" %(year,rday)
 
-    subprocess.check_output(["%s" % final_dtrad_p250_fmax0,"%d" % year, 
-                         "%03d" % doy, "T%03d" % tile, "%s" % base ])
-    subprocess.check_output(["%s" % final_dtrad_p250_fmax20,"%d" % year, 
-                         "%03d" % doy, "T%03d" % tile, "%s" % base ])
-    subprocess.check_output(["%s" % final_dtrad_p500,"%d" % year, 
-                         "%03d" % doy, "T%03d" % tile, "%s" % base ])
-    subprocess.check_output(["%s" % final_dtrad_p750,"%d" % year, 
-                         "%03d" % doy, "T%03d" % tile, "%s" % base ])
-    subprocess.check_output(["%s" % final_dtrad_p1000,"%d" % year, 
-                         "%03d" % doy, "T%03d" % tile, "%s" % base ])
-    subprocess.check_output(["%s" % final_dtrad_p2000,"%d" % year, 
-                         "%03d" % doy, "T%03d" % tile, "%s" % base ])    
-    subprocess.check_output(["%s" % merge,"%d" % year, "%03d" % doy,
-                             "T%03d" % tile, "%s" % base])
-    subprocess.check_output(["%s" % calc_predicted_trad2,"%d" % year, 
-                         "%03d" % doy, "T%03d" % tile, "%s" % base ])
-    lst_path = os.path.join(tile_path,
-                            "FINAL_DAY_LST_TIME2_%s_T%03d.dat" % ( date, tile))
+    laidates = np.array(range(1,366,4))
+    rday = laidates[laidates>=221][0]
+    laiddd="%d%03d" %(year,rday)
+
+    precip_fn = os.path.join(base,'STATIC','PRECIP','tiles','PRECIP_T%03d.dat' % tile)
+    fmax_fn = os.path.join(base,'STATIC','FMAX','tiles','FMAX_T%03d.dat' % tile)
+    terrain_fn = os.path.join(base,'STATIC','TERRAIN_SD','tiles','TERRAIN_T%03d.dat' % tile)
+    daylst_fn = os.path.join(base,'TILES','%03d' % tile,'FINAL_DAY_LST_%s_T%03d.dat' % (date,tile))
+    nightlst_fn = os.path.join(base,'TILES','%03d' % tile,'FINAL_NIGHT_LST_%s_T%03d.dat' % (date,tile))
+    lai_fn = os.path.join(base,'STATIC','LAI','tiles','MLAI_%s_T%03d.dat' % (laiddd,tile))
+    dtime_fn = os.path.join(base,'STATIC','DTIME','tiles','DTIME_%s_T%03d.dat' % (riseddd,tile))
+    fn1 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp1_T%03d.dat' % tile)
+    fn2 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp2_T%03d.dat' % tile)
+    fn3 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp3_T%03d.dat' % tile)
+    fn4 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp4_T%03d.dat' % tile)
+    fn5 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp5_T%03d.dat' % tile)
+    fn6 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp6_T%03d.dat' % tile)
+
+
+    subprocess.check_output(["%s" % final_dtrad_p250_fmax0,"%s" % precip_fn, 
+                         "%s" % fmax_fn, "%s" % terrain_fn, "%s" % daylst_fn,
+                         "%s" % nightlst_fn, "%s" % lai_fn, "%s" % dtime_fn,
+                         "%s" % fn1])
+    subprocess.check_output(["%s" % final_dtrad_p250_fmax20,"%s" % precip_fn, 
+                         "%s" % fmax_fn, "%s" % terrain_fn, "%s" % daylst_fn,
+                         "%s" % nightlst_fn, "%s" % lai_fn, "%s" % dtime_fn,
+                         "%s" % fn2])
+    subprocess.check_output(["%s" % final_dtrad_p500,"%s" % precip_fn, 
+                         "%s" % fmax_fn, "%s" % terrain_fn, "%s" % daylst_fn,
+                         "%s" % nightlst_fn, "%s" % lai_fn, "%s" % dtime_fn,
+                         "%s" % fn3])
+    subprocess.check_output(["%s" % final_dtrad_p750,"%s" % precip_fn, 
+                         "%s" % fmax_fn, "%s" % terrain_fn, "%s" % daylst_fn,
+                         "%s" % nightlst_fn, "%s" % lai_fn, "%s" % dtime_fn,
+                         "%s" % fn4])
+    subprocess.check_output(["%s" % final_dtrad_p1000,"%s" % precip_fn, 
+                         "%s" % fmax_fn, "%s" % terrain_fn, "%s" % daylst_fn,
+                         "%s" % nightlst_fn, "%s" % lai_fn, "%s" % dtime_fn,
+                         "%s" % fn5])
+    subprocess.check_output(["%s" % final_dtrad_p2000,"%s" % precip_fn, 
+                         "%s" % fmax_fn, "%s" % terrain_fn, "%s" % daylst_fn,
+                         "%s" % nightlst_fn, "%s" % lai_fn, "%s" % dtime_fn,
+                         "%s" % fn6])
     dtrad_path = os.path.join(tile_path,
                             "FINAL_DTRAD_%s_T%03d.dat" % ( date, tile))
+    subprocess.check_output(["%s" % merge,"%s" % fn1, "%s" % fn2,"%s" % fn3,
+                             "%s" % fn4, "%s" % fn5, "%s" % fn6, "%s" % dtrad_path])
+    lst_path = os.path.join(tile_path,
+                            "FINAL_DAY_LST_TIME2_%s_T%03d.dat" % ( date, tile))
+
+    subprocess.check_output(["%s" % calc_predicted_trad2,"%s" % nightlst_fn, 
+                         "%s" % daylst_fn, "%s" % lai_fn, "%s" % lst_path ])
+
+
     gzipped(lst_path)
     gzipped(dtrad_path)
       

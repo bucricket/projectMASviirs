@@ -1,31 +1,20 @@
 program merge_dtrad
 
 integer, parameter :: dx=3750, dy=3750
-character(len=255) :: f1, f2, f3, f4, f5, f6, o1
+character(len=400) :: f1, f2, f3, f4, f5, f6, out_fn
 real :: dtrad1(dx,dy), dtrad2(dx,dy), dtrad3(dx,dy)
 real :: dtrad4(dx,dy), dtrad5(dx,dy), dtrad6(dx,dy)
 real :: final_dtrad(dx,dy)
-character(len=4) :: arg1, arg3
-character(len=3) :: arg2
-character(len=255) :: arg4, basedir
-!character (len=:), allocatable :: basedir
-integer :: iyear, iday
-integer :: yyyyddd
 
-call getarg(1,arg1)
-call getarg(2,arg2)
-call getarg(3,arg3)
-call getarg(3,arg3)
-read(arg1,'(i4)') year
-read(arg2,'(i3)') doy
-basedir=trim(arg4)
 
-write(f1,'(a,a,a,a)') basedir,'/PROCESSING/DTRAD_PREDICTION/comp1_',arg3,'.dat'
-write(f2,'(a,a,a,a)') basedir,'/PROCESSING/DTRAD_PREDICTION/comp2_',arg3,'.dat'
-write(f3,'(a,a,a,a)') basedir,'/PROCESSING/DTRAD_PREDICTION/comp3_',arg3,'.dat'
-write(f4,'(a,a,a,a)') basedir,'/PROCESSING/DTRAD_PREDICTION/comp4_',arg3,'.dat'
-write(f5,'(a,a,a,a)') basedir,'/PROCESSING/DTRAD_PREDICTION/comp5_',arg3,'.dat'
-write(f6,'(a,a,a,a)') basedir,'/PROCESSING/DTRAD_PREDICTION/comp6_',arg3,'.dat'
+call getarg(1,f1)
+call getarg(2,f2)
+call getarg(3,f3)
+call getarg(4,f4)
+call getarg(5,f5)
+call getarg(6,f6)
+call getarg(7,out_fn)
+
 
 open(10,file=f1,form='unformatted',access='direct',recl=dx*dy*4)
 open(11,file=f2,form='unformatted',access='direct',recl=dx*dy*4)
@@ -70,9 +59,7 @@ do i = 1, dx
 enddo
 enddo
 
-yyyyddd=iyear*1000+iday
-write(o1,'(a,a,a,a,I7,a,a,a)') basedir,'/TILES/',arg3,'/FINAL_DTRAD_',yyyyddd,'_',arg3,'.dat'
-open(10,file=o1,form='unformatted',access='direct',recl=dx*dy*4)
+open(10,file=out_fn,form='unformatted',access='direct',recl=dx*dy*4)
 write(10,rec=1) final_dtrad
 close(20)
 
