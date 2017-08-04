@@ -7,7 +7,7 @@ real, parameter :: c1x1=-0.183506 ! DAY-NIGHT
 real, parameter :: c1x2=1.04281    ! DAY
 real, parameter :: c1x3=-0.0529513
 
-character(len=400) :: dtradfile, laifile, dayfile, outfile 
+character(len=400) :: nightfile, laifile, dayfile, outfile 
 logical :: exists1, exists2, exists3
 real :: lai(dx,dy), day(dx,dy)
 real :: night(dx,dy), model(dx,dy)
