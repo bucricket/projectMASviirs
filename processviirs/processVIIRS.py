@@ -504,6 +504,10 @@ def write_gen_sfc_prof():
     file.write("'d re(smth9(spfhhy1),0.25,0.25)'\n")
     file.write("'disable fwrite'\n")
     file.write("\n")
+    file.write("'set gxout fwrite'\n")
+    file.write("'set fwrite sfc_lwdn.dat'\n")
+    file.write("'d re(smth9(dlwrfsfc),0.25,0.25)'\n")
+    file.write("'disable fwrite'\n")
     file.write("\n")
     file.write("'set gxout fwrite'\n")
     file.write("'set fwrite temp_profile.dat'\n")
@@ -851,11 +855,11 @@ def pred_dtrad(tile,year,doy):
         gunzip(fn)
             
     dtimedates = np.array(range(1,366,7))
-    rday = dtimedates[dtimedates>=221][0]
+    rday = dtimedates[dtimedates>=doy][0]
     riseddd="%d%03d" %(year,rday)
 
     laidates = np.array(range(1,366,4))
-    rday = laidates[laidates>=221][0]
+    rday = laidates[laidates>=doy][0]
     laiddd="%d%03d" %(year,rday)
 
     precip_fn = os.path.join(base,'STATIC','PRECIP','tiles','PRECIP_T%03d.dat' % tile)
@@ -931,13 +935,16 @@ def main():
 #tile = 87
 #dd = datetime.datetime(2016,6,1)
 #doy = (dd-datetime.datetime(2016,1,1)).days
+#tile = 87
+#year = 2015
+#doy = 152
     regrid_I5(tile,year,doy)
     regrid_cloud(tile,year,doy)
     Apply_mask(tile,year,doy)
     getIJcoords(tile)
     getCFSRdata(year,doy)
-    atmosCorrection(tile,year,doy)
-    merge_lst(tile,year,doy)
+#    atmosCorrection(tile,year,doy)
+#    merge_lst(tile,year,doy)
 #    pred_dtrad(tile,year,doy)
 
 #=====convert to geotiff=================
