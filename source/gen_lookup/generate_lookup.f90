@@ -57,10 +57,10 @@ do i = 1, gx
   glon(i,j) = ilon
  endif
  if (i.gt.1) then
-  glon(i,j) = glon(i-1,j)+0.125
+  glon(i,j) = glon(i-1,j)+0.25
  endif
 enddo
- ilat=ilat+0.125
+ ilat=ilat+0.25
  ilon=-180.00
 enddo
 
