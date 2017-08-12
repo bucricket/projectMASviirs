@@ -693,7 +693,7 @@ def atmosCorrection(tile,year,doy):
                                        "%s" % icoordpath, "%s" % jcoordpath,
                                        "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
         
-        gzipped(outfn)
+#        gzipped(outfn)
 #        os.remove(out_trad_fn)
 #        os.remove(out_view_fn)
         
@@ -743,6 +743,7 @@ def merge_lst(tile,year,doy):
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
             gunzip(lst_fn)
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
+            print lst_fn[:-3]
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         
@@ -814,8 +815,8 @@ def merge_lst(tile,year,doy):
         lst = bb[indrow,indcol]
         lst = np.reshape(lst,[3750,3750])
         lst = np.array(lst,dtype='Float32')
-        out_lst_fn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
-        out_view_fn = os.path.join(tile_path,"FINAL_DAY_VIEW_%s_T%03d.dat" % (date,tile))
+        out_lst_fn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.dat" % (date,tile))
+        out_view_fn = os.path.join(tile_path,"FINAL_NIGHT_VIEW_%s_T%03d.dat" % (date,tile))
 #        subprocess.check_output(["%s" % merge,"%s" % lst_list_fn, "%s" % view_list_fn, 
 #                                 "%d" % nfiles,"%s" % out_lst_fn, "%s" % out_view_fn])
 #        subprocess.check_output(["%s" % merge,"%s" % lst_stack, "%s" % view_stack, 
@@ -857,6 +858,7 @@ def pred_dtrad(tile,year,doy):
     dtimedates = np.array(range(1,366,7))
     rday = dtimedates[dtimedates>=doy][0]
     riseddd="%d%03d" %(year,rday)
+    risedoy = rday
 
     laidates = np.array(range(1,366,4))
     rday = laidates[laidates>=doy][0]
@@ -865,10 +867,10 @@ def pred_dtrad(tile,year,doy):
     precip_fn = os.path.join(base,'STATIC','PRECIP','tiles','PRECIP_T%03d.dat' % tile)
     fmax_fn = os.path.join(base,'STATIC','FMAX','tiles','FMAX_T%03d.dat' % tile)
     terrain_fn = os.path.join(base,'STATIC','TERRAIN_SD','tiles','TERRAIN_T%03d.dat' % tile)
-    daylst_fn = os.path.join(base,'TILES','%03d' % tile,'FINAL_DAY_LST_%s_T%03d.dat' % (date,tile))
-    nightlst_fn = os.path.join(base,'TILES','%03d' % tile,'FINAL_NIGHT_LST_%s_T%03d.dat' % (date,tile))
+    daylst_fn = os.path.join(base,'TILES','T%03d' % tile,'FINAL_DAY_LST_%s_T%03d.dat' % (date,tile))
+    nightlst_fn = os.path.join(base,'TILES','T%03d' % tile,'FINAL_NIGHT_LST_%s_T%03d.dat' % (date,tile))
     lai_fn = os.path.join(base,'STATIC','LAI','tiles','MLAI_%s_T%03d.dat' % (laiddd,tile))
-    dtime_fn = os.path.join(base,'STATIC','DTIME','tiles','DTIME_%s_T%03d.dat' % (riseddd,tile))
+    dtime_fn = os.path.join(base,'STATIC','DTIME','tiles','DTIME_2014%03d_T%03d.dat' % (risedoy,tile))
     fn1 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp1_T%03d.dat' % tile)
     fn2 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp2_T%03d.dat' % tile)
     fn3 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp3_T%03d.dat' % tile)
@@ -912,20 +914,20 @@ def pred_dtrad(tile,year,doy):
                          "%s" % daylst_fn, "%s" % lai_fn, "%s" % lst_path ])
 
 
-    gzipped(lst_path)
-    gzipped(dtrad_path)
+#    gzipped(lst_path)
+#    gzipped(dtrad_path)
       
-def main():
-    # Get time and location from user
-    parser = argparse.ArgumentParser()
-    parser.add_argument("tile", type=int, help="15x15 deg tile number")
-    parser.add_argument("year", type=int, help="year of data")
-    parser.add_argument("doy", type=int, help="day of year of data")
-    args = parser.parse_args()
-      
-    tile = args.tile
-    year = args.year
-    doy = args.doy
+#def main():
+#    # Get time and location from user
+#    parser = argparse.ArgumentParser()
+#    parser.add_argument("tile", type=int, help="15x15 deg tile number")
+#    parser.add_argument("year", type=int, help="year of data")
+#    parser.add_argument("doy", type=int, help="day of year of data")
+#    args = parser.parse_args()
+#      
+#    tile = args.tile
+#    year = args.year
+#    doy = args.doy
 #######this should be run when downloading data########
 #data_cache = os.path.join(data_path,"2016","12")
 #ff = glob.glob(os.path.join(data_cache,"SVI05*"))
@@ -935,17 +937,17 @@ def main():
 #tile = 87
 #dd = datetime.datetime(2016,6,1)
 #doy = (dd-datetime.datetime(2016,1,1)).days
-#tile = 87
-#year = 2015
-#doy = 152
-    regrid_I5(tile,year,doy)
-    regrid_cloud(tile,year,doy)
-    Apply_mask(tile,year,doy)
-    getIJcoords(tile)
-    getCFSRdata(year,doy)
-#    atmosCorrection(tile,year,doy)
-#    merge_lst(tile,year,doy)
-#    pred_dtrad(tile,year,doy)
+tile = 63
+year = 2015
+doy = 152
+#regrid_I5(tile,year,doy)
+#regrid_cloud(tile,year,doy)
+#Apply_mask(tile,year,doy)
+#getIJcoords(tile)
+#getCFSRdata(year,doy)
+atmosCorrection(tile,year,doy)
+#merge_lst(tile,year,doy)
+#pred_dtrad(tile,year,doy)
 
 #=====convert to geotiff=================
 #
@@ -954,11 +956,11 @@ ALEXIshape = [2880,1200]
 ALEXIshape = [720,1440]
 #ALEXIres = [0.004,0.004]
 ALEXIres = [0.25,0.25]
-#row = tile/24
-#col = tile-(row*24)
-#ULlat= (75.-(row)*15.)
-#ULlon=(-180.+(col-1.)*15.)      
-#inUL = [ULlon,ULlat]  
+row = tile/24
+col = tile-(row*24)
+ULlat= (75.-(row)*15.)
+ULlon=(-180.+(col-1.)*15.)      
+inUL = [ULlon,ULlat]  
 inUL = [-180., 90.0]
 #tile_path = os.path.join(base,"TILES","T%03d" % tile) 
 #tile_path = os.path.join(base,"overpass_corr")
