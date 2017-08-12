@@ -1,7 +1,7 @@
 program regridder
 
 integer, parameter :: ax=3750, ay=3750
-integer, parameter :: gx=720, gy=1440
+integer, parameter :: gx=2880, gy=1200
 real :: mask(gx,gy), alat(ax,ay), alon(ax,ay)
 real :: goes(gx,gy)
 real :: glat(gx,gy), glon(gx,gy)
@@ -48,7 +48,7 @@ enddo
 write(6,*) alat(1,1), alat(ax,ay)
 write(6,*) alon(1,1), alon(ax,ay)
 
-ilat=-90.0
+ilat=-60.0
 ilon=-180.00
 do j = 1, gy
 do i = 1, gx
@@ -57,10 +57,10 @@ do i = 1, gx
   glon(i,j) = ilon
  endif
  if (i.gt.1) then
-  glon(i,j) = glon(i-1,j)+0.25
+  glon(i,j) = glon(i-1,j)+0.125
  endif
 enddo
- ilat=ilat+0.25
+ ilat=ilat+0.125
  ilon=-180.00
 enddo
 
