@@ -1,7 +1,7 @@
 program regridder
 
 integer, parameter :: ax=3750, ay=3750
-integer, parameter :: gx=2880, gy=1200
+integer, parameter :: gx=720, gy=1440
 real :: mask(gx,gy), alat(ax,ay), alon(ax,ay)
 real :: goes(gx,gy)
 real :: glat(gx,gy), glon(gx,gy)
