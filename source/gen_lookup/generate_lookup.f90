@@ -48,7 +48,7 @@ enddo
 write(6,*) alat(1,1), alat(ax,ay)
 write(6,*) alon(1,1), alon(ax,ay)
 
-ilat=-60.0
+ilat=-90.0
 ilon=-180.00
 do j = 1, gy
 do i = 1, gx
