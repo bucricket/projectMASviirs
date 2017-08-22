@@ -18,6 +18,8 @@ import shutil
 from osgeo import gdal,osr
 import argparse
 import urllib2, base64
+import time as timer
+import ephem
 
 
 
@@ -55,7 +57,7 @@ def folders(base):
     overpass_correction_path = os.path.join(processing_path,"overpass_corr")   
     if not os.path.exists(overpass_correction_path):
         os.makedirs(overpass_correction_path)
-    CFSR_path = os.path.join(processing_path,"CFSR")   
+    CFSR_path = os.path.join(static_path,"CFSR")   
     if not os.path.exists(CFSR_path):
         os.makedirs(CFSR_path)
     out = {'grid_I5_path':grid_I5_path,'grid_I5_temp_path':grid_I5_temp_path,
@@ -209,7 +211,9 @@ def read_i5_sdr(tile,year,doy):
         filename = filenames.iloc[i]
         night_flag = night_flags.iloc[i]
         folder = os.sep.join(filename.split(os.sep)[:-1])
-        search_geofile = os.path.join(folder,'GITCO'+filename.split(os.sep)[-1][5:-34])
+        parts = filename.split(os.sep)[-1].split('_')
+        search_geofile = os.path.join(folder,"*"+"_".join(("GITCO",parts[1],parts[2],parts[3],parts[4])))
+#        search_geofile = os.path.join(folder,'GITCO'+filename.split(os.sep)[-1][5:-34])
         geofile = glob.glob(search_geofile+'*')[0]
         
         start=filename.find('_t')
@@ -262,8 +266,11 @@ def read_cloud(tile,year,doy):
         filename = filenames.iloc[i]
         night_flag = night_flags.iloc[i]
         folder = os.sep.join(filename.split(os.sep)[:-1])
-        search_geofile = os.path.join(folder,'GMTCO'+filename.split(os.sep)[-1][5:-34])
-        search_cloudfile = os.path.join(folder,'IICMO'+filename.split(os.sep)[-1][5:-34])
+        parts = filename.split(os.sep)[-1].split('_')
+        search_geofile = os.path.join(folder,"*"+"_".join(("GMTCO",parts[1],parts[2],parts[3],parts[4])))
+        search_cloudfile = os.path.join(folder,"*"+"_".join(("IICMO",parts[1],parts[2],parts[3],parts[4])))
+#        search_geofile = os.path.join(folder,'GMTCO'+filename.split(os.sep)[-1][5:-34])
+#        search_cloudfile = os.path.join(folder,'IICMO'+filename.split(os.sep)[-1][5:-34])
         geofile = glob.glob(search_geofile+'*')[0]
         cloudfile = glob.glob(search_cloudfile+'*')[0]
         start=filename.find('_t')
@@ -317,22 +324,26 @@ def regrid_I5(tile,year,doy):
         latfile = os.path.join(grid_I5_temp_path,"bt11_lat_%03d_%s_%s.dat" % (tile,time,night_flag))
         lonfile = os.path.join(grid_I5_temp_path,"bt11_lon_%03d_%s_%s.dat" % (tile,time,night_flag))
         viewfile = os.path.join(grid_I5_temp_path,"view_%03d_%s_%s.dat" % (tile,time,night_flag))
-#        '/raid1/sport/people/chain/VIIRS_PROCESS/grid_I5/trad_sum1_',arg3,'.dat'
-#        '/raid1/sport/people/chain/VIIRS_PROCESS/grid_I5/trad_count1_',arg3,'.dat'
+
         #grid day I5 data
         if night_flag == "Day":
+            start = timer.time()
             trad_sum_fn = os.path.join(grid_I5_path,'bt11_sum1_%03d_%s.dat' % (tile,time))
             trad_count_fn = os.path.join(grid_I5_path,'bt11_count1_%03d_%s.dat' % (tile,time))
-            out = subprocess.check_output(["%s" % grid_I5_SDR, "%d" % lat, "%d" %  lon,
+            out = subprocess.check_call(["%s" % grid_I5_SDR, "%d" % lat, "%d" %  lon,
                                      "%s" % i5_data, "%s" % latfile,
                                      "%s" % lonfile, "%s" % trad_sum_fn, "%s" % trad_count_fn])
-            print out
+            end = timer.time()
+            print(end - start)
             #grid day view data
+            start = timer.time()
             view_sum_fn = os.path.join(grid_I5_path,'view_sum1_%03d_%s.dat' % (tile,time))
             view_count_fn = os.path.join(grid_I5_path,'view_count1_%03d_%s.dat' % (tile,time))
             subprocess.check_output(["%s" % grid_I5_SDR, "%d" % lat, "%d" %  lon,
                                      "%s" % viewfile, "%s" % latfile,
                                      "%s" % lonfile, "%s" % view_sum_fn, "%s" % view_count_fn])
+            end = timer.time()
+            print(end - start)
     
             view_agg = os.path.join(agg_I5_path,"view_%s_%03d_%s.dat" % (date,tile,time))
             trad_agg_day = os.path.join(agg_I5_path,"day_bt11_%s_%03d_%s.dat" % (date,tile,time))
@@ -439,7 +450,7 @@ def getIJcoords(tile):
     coords = "generate_lookup"
     lat,lon = tile2latlon(tile)
     tilestr = "T%03d" % tile
-    tile_lut_path = os.path.join(processing_path,"CFSR","viirs_tile_lookup_tables")
+    tile_lut_path = os.path.join(static_path,"CFSR","viirs_tile_lookup_tables")
     if not os.path.exists(tile_lut_path):
         os.makedirs(tile_lut_path) 
     icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
@@ -450,151 +461,220 @@ def getIJcoords(tile):
         shutil.move(os.path.join(base,"CFSR_T%03d_lookup_icoord.dat" % tile), icoordpath)
         shutil.move(os.path.join(base,"CFSR_T%03d_lookup_jcoord.dat" % tile), jcoordpath)
 
-ncdcURL = 'https://nomads.ncdc.noaa.gov/modeldata/cfsv2_analysis_pgbh/'
-
-class earthDataHTTPRedirectHandler(urllib2.HTTPRedirectHandler):
-    def http_error_302(self, req, fp, code, msg, headers):
-        return urllib2.HTTPRedirectHandler.http_error_302(self, req, fp, code, msg, headers)
+def getIJcoordsPython(tile):
+    lat,lon = tile2latlon(tile)
+#    lat = lat+15.
+    tile_lut_path = os.path.join(static_path,"CFSR","viirs_tile_lookup_tables")
+    if not os.path.exists(tile_lut_path):
+        os.makedirs(tile_lut_path) 
+    icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
+    jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
     
-
-def getHTTPdata(url,outFN,auth=None):
-    request = urllib2.Request(url) 
-    if not (auth == None):
-        username = auth[0]
-        password = auth[1]
-        base64string = base64.encodestring('%s:%s' % (username, password)).replace('\n', '')
-        request.add_header("Authorization", "Basic %s" % base64string) 
+    istart = (90+lat)*4
+#    icor = np.floor((istart+0.252+(0.004*np.array(range(3750))))/0.5)+1
+    addArray = np.floor(np.array(range(3750))*0.004/0.25)
+    icor = istart+addArray
+#    icor = np.floor((istart+(0.004*np.array(range(3750))))/0.5)+1
+    icormat = np.repeat(np.reshape(icor,[icor.size,1]),3750,axis=1)
+#    icormat = icormat.T
+    icormat = np.array(icormat,dtype='int32')
+#    icormat = np.flipud(icormat)
+    icormat.tofile(jcoordpath) 
     
-    cookieprocessor = urllib2.HTTPCookieProcessor()
-    opener = urllib2.build_opener(earthDataHTTPRedirectHandler, cookieprocessor)
-    urllib2.install_opener(opener) 
-    r = opener.open(request)
-    result = r.read()
+#    jstart = 90+lat
+    jstart = (180+lon)*4
+    jcor = jstart+addArray
+#    jcor = np.floor((jstart+0.252-(0.004*np.array(range(3750))))/0.5)+1
+#    jcor = np.floor((jstart-(0.004*np.array(range(3750))))/0.5)+1
+    jcormat = np.repeat(np.reshape(jcor,[jcor.size,1]),3750,axis=1)
+    jcormat = jcormat.T
+    jcormat = np.array(jcormat,dtype='int32')
+#    jcormat = np.flipud(jcormat)
+    jcormat.tofile(icoordpath)
+
+def get_rise55(year,doy,tile):
+    dd=datetime.datetime(year,1,1)+datetime.timedelta(days=doy)
+    o = ephem.Observer()
+    lat,lon = tile2latlon(tile)
+    o.lat, o.long = '%3.2f' % (lat+7.5), '%3.2f' % (lon+7.5)
+    sun = ephem.Sun()
+    sunrise = o.previous_rising(sun, start=dd)
+    noon = o.next_transit(sun, start=sunrise)
+    hr = noon.datetime().hour
+    minute = noon.datetime().minute
+    minfraction = minute/60.
+    return (hr+minfraction)-1.5
+
+def is_odd(num):
+   return num % 2 != 0
+
+def getGrabTime(time):    
+    return int(((time/300)+1)*300)
+
+
+def getGrabTimeInv(grab_time,doy):
+    if is_odd(grab_time):
+        hr = grab_time-3
+        forecastHR = 3
+    else:
+        hr = grab_time
+        forecastHR = 0
+    if hr == 24:
+        hr = 0
+        doy+=1
+    return hr, forecastHR,doy 
     
-    with open(outFN, 'wb') as f:
-        f.write(result)
-
-def moveFiles(sourcepath,destinationpath,date,forcastHR,hr,ext):
-    hr = hr+forcastHR
-    source = os.listdir(sourcepath)
-    for files in source:
-        if files.endswith('.%s' % ext):
-            shutil.move(os.path.join(sourcepath,files), os.path.join(destinationpath,files[:-4]+'_%s_%02d00.dat') % (date,hr))   
-
-def write_gen_sfc_prof():
-    fn = os.path.join('./gen_sfc_prof_fields.gs')
-    file = open(fn, "w")
-    file.write("'open current.ctl'\n")
-    file.write("\n")
-    file.write("'set lon -180 180'\n")
-    file.write("'set lat -89.875 89.875' \n")
-    file.write("\n")
-    file.write("'set gxout fwrite'\n")
-    file.write("'set fwrite sfc_temp.dat'\n")
-    file.write("'d re(smth9(tmpsig995),0.25,0.25)'\n")
-    file.write("'disable fwrite'\n")
-    file.write("\n")
-    file.write("'set gxout fwrite'\n")
-    file.write("'set fwrite sfc_pres.dat'\n")
-    file.write("'d re(smth9(pressfc),0.25,0.25)'\n")
-    file.write("'disable fwrite'\n")
-    file.write("\n")
-    file.write("'set gxout fwrite'\n")
-    file.write("'set fwrite sfc_spfh.dat'\n")
-    file.write("'d re(smth9(spfhhy1),0.25,0.25)'\n")
-    file.write("'disable fwrite'\n")
-    file.write("\n")
-    file.write("'set gxout fwrite'\n")
-    file.write("'set fwrite sfc_lwdn.dat'\n")
-    file.write("'d re(smth9(dlwrfsfc),0.25,0.25)'\n")
-    file.write("'disable fwrite'\n")
-    file.write("\n")
-    file.write("'set gxout fwrite'\n")
-    file.write("'set fwrite temp_profile.dat'\n")
-    file.write("z=1\n")
-    file.write("while (z <= 21)\n")
-    file.write(" 'set z 'z\n")
-    file.write(" 'd re(smth9(tmpprs),0.25,0.25)'\n")
-    file.write(" z=z+1\n")
-    file.write("endwhile\n")
-    file.write("'disable fwrite'\n")
-    file.write("\n")
-    file.write("'set gxout fwrite'\n")
-    file.write("'set fwrite spfh_profile.dat'\n")
-    file.write("z=1\n")
-    file.write("while (z <= 21)\n")
-    file.write(" 'set z 'z\n")
-    file.write(" 'd re(smth9(spfhprs),0.25,0.25)'\n")
-    file.write(" z=z+1\n")
-    file.write("endwhile\n")
-    file.write("'disable fwrite'\n")
-    file.close()
-
-
-def runGrads(fn):
-    g2ctl = 'g2ctl'
-    gribmap = 'gribmap'
-    opengrads = 'opengrads'
-    gen_sfc_prof = './gen_sfc_prof_fields.gs'
-    subprocess.check_output("%s %s > ./current.ctl" % (g2ctl,fn), shell=True)
-    subprocess.check_output("%s -i ./current.ctl -0" % gribmap, shell=True)
-    out = subprocess.check_output("%s -blxc 'run %s '" % (opengrads,gen_sfc_prof), shell=True)
-    
-    print out
-  
-def getCFSRdata(year,doy):  
-    write_gen_sfc_prof()     
-    levs="(100|150|200|250|300|350|400|450|500|550|600|650|700|750|800|850|900|925|950|975|1000) mb"
-
-    
-    s1="(HGT):%s" % levs
-    s2="(TMP):%s" % levs
-    s3="(SPFH):%s" % levs
-    s4="DLWRF:surface"
-    s5="HGT:surface"
-    s6="PRES:surface"
-    s7="SPFH:1 hybrid level"
-    s8="TMP:0.995 sigma level"
-    s9="UGRD:0.995 sigma level"
-    s10="VGRD:0.995 sigma level"
-    wgrib = "wgrib2"
-
-#    for year in range(iyear,eyear):
-#        for doy in range(iday,eday):
-    dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
-    date = "%d%03d" %(year,doy)
-    print "date:%s" % date
-    print "============================================================"
-    for i in range(0,8):
-        hrs = [0,0,6,6,12,12,18,18]
-        hr = hrs[i]
-        forcastHRs = [0,3,0,3,0,3,0,3]
-        forcastHR = forcastHRs[i]
-        hr1file = 'cdas1.t%02dz.pgrbh%02d.grib2' % (hr,forcastHR)
-        print "processing file...%s" % hr1file
-    
-        #------download file                
-        pydapURL = os.path.join(ncdcURL,"%s" % year,"%d%02d" % (year,dd.month),
-                                "%d%02d%02d" % (year,dd.month,dd.day),hr1file)
-        outFN = os.path.join(os.getcwd(),hr1file)
-        getHTTPdata(pydapURL,outFN)
-        
-        #------extract data
-        cfsr_out = os.path.join(os.getcwd(),"CFSR_%d%02d%02d_%02d00_00%d.grib2" % (year,dd.month,dd.day,hr,forcastHR))
-        
-        subprocess.check_output(["%s" % wgrib, "%s" % outFN, "-match",
-                                 "\"%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\"" % (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10),
-                                 "-grib", "%s" % cfsr_out])
-        #-------process using grads------
-        runGrads(cfsr_out)
-        srcpath = os.getcwd()
-        dstpath =  os.path.join(CFSR_path,"%d" % year)
-        if not os.path.exists(dstpath):
-            os.makedirs(dstpath) 
-        moveFiles(srcpath,dstpath,date,forcastHR,hr,"dat")
-    print "finished processing!"
+#ncdcURL = 'https://nomads.ncdc.noaa.gov/modeldata/cfsv2_analysis_pgbh/'
+#
+#class earthDataHTTPRedirectHandler(urllib2.HTTPRedirectHandler):
+#    def http_error_302(self, req, fp, code, msg, headers):
+#        return urllib2.HTTPRedirectHandler.http_error_302(self, req, fp, code, msg, headers)
+#    
+#
+#def getHTTPdata(url,outFN,auth=None):
+#    request = urllib2.Request(url) 
+#    if not (auth == None):
+#        username = auth[0]
+#        password = auth[1]
+#        base64string = base64.encodestring('%s:%s' % (username, password)).replace('\n', '')
+#        request.add_header("Authorization", "Basic %s" % base64string) 
+#    
+#    cookieprocessor = urllib2.HTTPCookieProcessor()
+#    opener = urllib2.build_opener(earthDataHTTPRedirectHandler, cookieprocessor)
+#    urllib2.install_opener(opener) 
+#    r = opener.open(request)
+#    result = r.read()
+#    
+#    with open(outFN, 'wb') as f:
+#        f.write(result)
+#
+#def moveFiles(sourcepath,destinationpath,date,forcastHR,hr,ext):
+#    hr = hr+forcastHR
+#    source = os.listdir(sourcepath)
+#    for files in source:
+#        if files.endswith('.%s' % ext):
+#            shutil.move(os.path.join(sourcepath,files), os.path.join(destinationpath,files[:-4]+'_%s_%02d00.dat') % (date,hr))   
+#
+#def write_gen_sfc_prof():
+#    fn = os.path.join('./gen_sfc_prof_fields.gs')
+#    file = open(fn, "w")
+#    file.write("'open current.ctl'\n")
+#    file.write("\n")
+#    file.write("'set lon -180 180'\n")
+#    file.write("'set lat -89.875 89.875' \n")
+#    file.write("\n")
+#    file.write("'set gxout fwrite'\n")
+#    file.write("'set fwrite sfc_temp.dat'\n")
+#    file.write("'d re(smth9(tmpsig995),0.25,0.25)'\n")
+#    file.write("'disable fwrite'\n")
+#    file.write("\n")
+#    file.write("'set gxout fwrite'\n")
+#    file.write("'set fwrite sfc_pres.dat'\n")
+#    file.write("'d re(smth9(pressfc),0.25,0.25)'\n")
+#    file.write("'disable fwrite'\n")
+#    file.write("\n")
+#    file.write("'set gxout fwrite'\n")
+#    file.write("'set fwrite sfc_spfh.dat'\n")
+#    file.write("'d re(smth9(spfhhy1),0.25,0.25)'\n")
+#    file.write("'disable fwrite'\n")
+#    file.write("\n")
+#    file.write("'set gxout fwrite'\n")
+#    file.write("'set fwrite sfc_lwdn.dat'\n")
+#    file.write("'d re(smth9(dlwrfsfc),0.25,0.25)'\n")
+#    file.write("'disable fwrite'\n")
+#    file.write("\n")
+#    file.write("'set gxout fwrite'\n")
+#    file.write("'set fwrite temp_profile.dat'\n")
+#    file.write("z=1\n")
+#    file.write("while (z <= 21)\n")
+#    file.write(" 'set z 'z\n")
+#    file.write(" 'd re(smth9(tmpprs),0.25,0.25)'\n")
+#    file.write(" z=z+1\n")
+#    file.write("endwhile\n")
+#    file.write("'disable fwrite'\n")
+#    file.write("\n")
+#    file.write("'set gxout fwrite'\n")
+#    file.write("'set fwrite spfh_profile.dat'\n")
+#    file.write("z=1\n")
+#    file.write("while (z <= 21)\n")
+#    file.write(" 'set z 'z\n")
+#    file.write(" 'd re(smth9(spfhprs),0.25,0.25)'\n")
+#    file.write(" z=z+1\n")
+#    file.write("endwhile\n")
+#    file.write("'disable fwrite'\n")
+#    file.close()
+#
+#
+#def runGrads(fn):
+#    g2ctl = 'g2ctl'
+#    gribmap = 'gribmap'
+#    opengrads = 'opengrads'
+#    gen_sfc_prof = './gen_sfc_prof_fields.gs'
+#    subprocess.check_output("%s %s > ./current.ctl" % (g2ctl,fn), shell=True)
+#    subprocess.check_output("%s -i ./current.ctl -0" % gribmap, shell=True)
+#    out = subprocess.check_output("%s -blxc 'run %s '" % (opengrads,gen_sfc_prof), shell=True)
+#    
+#    print out
+#  
+#def getCFSRdata(year,doy,hr,forcastHR):  
+#    write_gen_sfc_prof()     
+#    levs="(100|150|200|250|300|350|400|450|500|550|600|650|700|750|800|850|900|925|950|975|1000) mb"
+#
+#    
+#    s1="(HGT):%s" % levs
+#    s2="(TMP):%s" % levs
+#    s3="(SPFH):%s" % levs
+#    s4="DLWRF:surface"
+#    s5="HGT:surface"
+#    s6="PRES:surface"
+#    s7="SPFH:1 hybrid level"
+#    s8="TMP:0.995 sigma level"
+#    s9="UGRD:0.995 sigma level"
+#    s10="VGRD:0.995 sigma level"
+#    wgrib = "wgrib2"
+#
+##    for year in range(iyear,eyear):
+##        for doy in range(iday,eday):
+#    dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
+#    date = "%d%03d" %(year,doy)
+#    print "date:%s" % date
+#    print "============================================================"
+##    for i in range(0,8):
+##        hrs = [0,0,6,6,12,12,18,18]
+##        hr = hrs[i]
+##        forcastHRs = [0,3,0,3,0,3,0,3]
+##        forcastHR = forcastHRs[i]
+#    hr1file = 'cdas1.t%02dz.pgrbh%02d.grib2' % (hr,forcastHR)
+#    print "processing file...%s" % hr1file
+#
+#    #------download file                
+#    pydapURL = os.path.join(ncdcURL,"%s" % year,"%d%02d" % (year,dd.month),
+#                            "%d%02d%02d" % (year,dd.month,dd.day),hr1file)
+#    outFN = os.path.join(os.getcwd(),hr1file)
+#    getHTTPdata(pydapURL,outFN)
+#    
+#    #------extract data
+#    cfsr_out = os.path.join(os.getcwd(),"CFSR_%d%02d%02d_%02d00_00%d.grib2" % (year,dd.month,dd.day,hr,forcastHR))
+#    
+#    subprocess.check_output(["%s" % wgrib, "%s" % outFN, "-match",
+#                             "\"%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\"" % (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10),
+#                             "-grib", "%s" % cfsr_out])
+#    #-------process using grads------
+#    runGrads(cfsr_out)
+#    srcpath = os.getcwd()
+#    dstpath =  os.path.join(CFSR_path,"%d" % year)
+#    if not os.path.exists(dstpath):
+#        os.makedirs(dstpath) 
+#    moveFiles(srcpath,dstpath,date,forcastHR,hr,"dat")
+#    print "finished processing!"
         
 def atmosCorrection(tile,year,doy):
+    LLlat,LLlon = tile2latlon(tile)
+    URlat = LLlat+15.
+    URlon = LLlon+15.
+    inUL = [LLlon,URlat]
+    ALEXIshape = [3750,3750]
+    ALEXIres = [0.004,0.004]
     #====get week date=====
     nweek=(doy-1)/7
     cday=nweek*7
@@ -605,108 +685,343 @@ def atmosCorrection(tile,year,doy):
     #=========================
     offset = "calc_offset_correction"
     run_correction = "run_correction"
-    overpass_corr_cache = os.path.join(static_path,"nominal_overpass_tiles")
+    overpass_corr_cache = os.path.join(static_path,"OVERPASS_OFFSET_CORRECTION")
 #    overpass_corr_path = os.path.join(processing_path,"overpass_corr")
     ztime_fn = os.path.join(overpass_corr_path,"CURRENT_DAY_ZTIME_T%03d.dat" % tile)
     gunzip(os.path.join(overpass_corr_cache,"DAY_ZTIME_T%03d.dat.gz" % tile),
        out_fn=ztime_fn)
+    convertBin2tif(ztime_fn,inUL,ALEXIshape,ALEXIres)
     dtrad_cache = os.path.join(static_path,"dtrad_avg")
     dtrad_fn =os.path.join(overpass_corr_path,"CURRENT_DTRAD_AVG_T%03d.dat" % tile)
     gunzip(os.path.join(dtrad_cache,"DTRAD_T%03d_%d.dat.gz" % (tile,avgddd)),
        out_fn=dtrad_fn)
+#    dtrad = np.fromfile(dtrad_fn, dtype=np.float32)
+#    dtrad = np.flipud(dtrad.reshape([3750,3750]))
+#    dtrad = dtrad.reshape([3750,3750])
+#    dtrad.tofile(dtrad_fn)
+#    convertBin2tif(dtrad_fn,inUL,ALEXIshape,ALEXIres)
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
-    filelist = glob.glob(os.path.join(tile_path,'day_bt_flag_%s*T%03d*.gz' % (date,tile)))
+#    filelist = glob.glob(os.path.join(tile_path,'day_bt_flag_%s*T%03d*.gz' % (date,tile)))
     tile_lut_path = os.path.join(CFSR_path,"viirs_tile_lookup_tables")
-    cfsr_tile_path = os.path.join(CFSR_path,"%d" % year)
-    for i in range(len(filelist)):
-        fn = filelist[i]
-        time_str = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
-        time=((int(time_str)/300)+1)*300
-        if (int(time_str)==2400):
-            time=2100
+    out_bt_fn = glob.glob(os.path.join(tile_path,"merged_day_bt_%s_T%03d*.dat" % (date,tile)))[0]
+    out_view_fn1 = glob.glob(os.path.join(tile_path,"merged_day_view_%s_T%03d*.dat" % (date,tile)))[0]
 
-        #======io filenames============================================
-        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (date,time))
-        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (date,time))
-        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (date,time))
-        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (date,time))
-        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (date,time))
-        icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
-        jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
-        view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time_str))
-        raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
-        trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
-        out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
-        #=============================================================
-#        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
-        gunzip(fn,out_fn=raw_trad_fn)
-        gunzip(view_fn,out_fn= out_view_fn)
-        subprocess.check_output(["%s" % offset, "%d" % year, "%03d" %  doy, "%s" % time_str,
-                                     "T%03d" % tile, "%s" % ztime_fn, "%s" % raw_trad_fn,
-                                     "%s" % dtrad_fn, "%s" % trad_fn])
+#    time_str = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+    time_str = out_bt_fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+#        time=((int(time_str)/300)+1)*300
+#        if (time==2400):
+#            time=2100
 
-        outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
-        cmd = "%s %s %s %s %s %s %s %s %s %s %s"% (run_correction,tprof,qprof,
-                                                    tsfcfile,presfile,qsfcfile,
-                                                    icoordpath,jcoordpath,trad_fn,
-                                                    out_view_fn,outfn)
-        print cmd
-        out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
-                                       "%s" % qprof,"%s" % tsfcfile,
-                                       "%s" % presfile, "%s" % qsfcfile,
-                                       "%s" % icoordpath, "%s" % jcoordpath,
-                                       "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
-        print out
-        
-        gzipped(outfn)
-#        os.remove(raw_trad_fn)
-#        os.remove(out_trad_fn)
-#        os.remove(out_view_fn)
-        
-    filelist = glob.glob(os.path.join(tile_path,'night_bt_flag_%s*T%03d*.gz' % (date,tile)))
-    for i in range(len(filelist)):
-        fn = filelist[i]
-        time_str = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
-        time=((int(time_str)/300)+1)*300
-        if (time==2400):
-            time=2100
-        #======io filenames============================================
-        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (date,time))
-        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (date,time))
-        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (date,time))
-        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (date,time))
-        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (date,time))
-        icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
-        jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
-        view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time_str))
-        raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
-        trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
-        out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
-        #=============================================================
+    grab_time = getGrabTime(int(time_str))
+    # use forecast hour
+    if (grab_time)==2400:
+        time = 0000
+    else:
+        time = grab_time
+    hr,forcastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+    cfsr_date = "%d%03d" % (year,cfsr_doy)
+    cfsr_tile_path = os.path.join(CFSR_path,"%d" % year,"%03d" % cfsr_doy)
+
+    #======io filenames============================================
+    tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (cfsr_date,time))
+    qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (cfsr_date,time))
+    tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (cfsr_date,time))
+    presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (cfsr_date,time))
+    qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (cfsr_date,time))
+    icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
+    jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
+#    view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time_str))
+    raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
+    trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
+    out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
+    #=============================================================
 #        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
-        gunzip(fn,out_fn=raw_trad_fn)
-        gunzip(view_fn,out_fn= out_view_fn)
-        outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
-        out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
-                                       "%s" % qprof,"%s" % tsfcfile,
-                                       "%s" % presfile, "%s" % qsfcfile,
-                                       "%s" % icoordpath, "%s" % jcoordpath,
-                                       "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
+#    gunzip(fn,out_fn=raw_trad_fn)
+#    gunzip(view_fn,out_fn= out_view_fn)
+    shutil.copyfile(out_bt_fn,raw_trad_fn)
+    shutil.copyfile(out_view_fn1,out_view_fn)
+    subprocess.check_output(["%s" % offset, "%d" % year, "%03d" %  doy, "%s" % time_str,
+                                 "T%03d" % tile, "%s" % ztime_fn, "%s" % raw_trad_fn,
+                                 "%s" % dtrad_fn, "%s" % trad_fn])
+
+    outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
+    cmd = "%s %s %s %s %s %s %s %s %s %s %s"% (run_correction,tprof,qprof,
+                                                tsfcfile,presfile,qsfcfile,
+                                                icoordpath,jcoordpath,trad_fn,
+                                                out_view_fn,outfn)
+    print cmd
+    out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
+                                   "%s" % qprof,"%s" % tsfcfile,
+                                   "%s" % presfile, "%s" % qsfcfile,
+                                   "%s" % icoordpath, "%s" % jcoordpath,
+                                   "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
+    print out
+    convertBin2tif(outfn,inUL,ALEXIshape,ALEXIres)
+    
+    #======Night=============================================================
+    out_bt_fn = glob.glob(os.path.join(tile_path,"merged_night_bt_%s_T%03d*.dat" % (date,tile)))[0]
+    out_view_fn1 = glob.glob(os.path.join(tile_path,"merged_night_view_%s_T%03d*.dat" % (date,tile)))[0]
+    time_str = out_bt_fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+    grab_time = getGrabTime(int(time_str))
+    # use forecast hour
+    if (grab_time)==2400:
+        time = 0
+    else:
+        time = grab_time
+    hr,forcastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+    cfsr_date = "%d%03d" % (year,cfsr_doy)
+    cfsr_tile_path = os.path.join(CFSR_path,"%d" % year,"%03d" % cfsr_doy)
+    
+
+    #======io filenames============================================
+    tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (cfsr_date,time))
+    qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (cfsr_date,time))
+    tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (cfsr_date,time))
+    presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (cfsr_date,time))
+    qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (cfsr_date,time))
+    icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
+    jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
+#    view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time_str))
+#    raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
+    trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
+    out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
+    #=============================================================
+#        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
+#    gunzip(fn,out_fn=raw_trad_fn)
+#    gunzip(view_fn,out_fn= out_view_fn)
+    shutil.copyfile(out_bt_fn,trad_fn)
+    shutil.copyfile(out_view_fn1,out_view_fn)
+    outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
+    out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
+                                   "%s" % qprof,"%s" % tsfcfile,
+                                   "%s" % presfile, "%s" % qsfcfile,
+                                   "%s" % icoordpath, "%s" % jcoordpath,
+                                   "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
+
+    convertBin2tif(outfn,inUL,ALEXIshape,ALEXIres)
+## COMMENTED FOR TESTING NEW MERGING==========================================        
+#    for i in range(len(filelist)):
+#        fn = filelist[i]
+#        time_str = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+##        time=((int(time_str)/300)+1)*300
+##        if (time==2400):
+##            time=2100
+#
+#        grab_time = getGrabTime(int(time_str))
+#        # use forecast hour
+#        if (grab_time)==2400:
+#            time = 0000
+#        else:
+#            time = grab_time
+#        hr,forcastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+#        cfsr_date = "%d%03d" % (year,cfsr_doy)
+#        cfsr_tile_path = os.path.join(CFSR_path,"%d" % year,"%03d" % cfsr_doy)
+#
+#        #======io filenames============================================
+#        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (cfsr_date,time))
+#        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (cfsr_date,time))
+#        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (cfsr_date,time))
+#        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (cfsr_date,time))
+#        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (cfsr_date,time))
+#        icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
+#        jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
+#        view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time_str))
+#        raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
+#        trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
+#        out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
+#        #=============================================================
+##        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
+#        gunzip(fn,out_fn=raw_trad_fn)
+#        gunzip(view_fn,out_fn= out_view_fn)
+#        subprocess.check_output(["%s" % offset, "%d" % year, "%03d" %  doy, "%s" % time_str,
+#                                     "T%03d" % tile, "%s" % ztime_fn, "%s" % raw_trad_fn,
+#                                     "%s" % dtrad_fn, "%s" % trad_fn])
+#
+#        outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
+#        cmd = "%s %s %s %s %s %s %s %s %s %s %s"% (run_correction,tprof,qprof,
+#                                                    tsfcfile,presfile,qsfcfile,
+#                                                    icoordpath,jcoordpath,trad_fn,
+#                                                    out_view_fn,outfn)
+#        print cmd
+#        out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
+#                                       "%s" % qprof,"%s" % tsfcfile,
+#                                       "%s" % presfile, "%s" % qsfcfile,
+#                                       "%s" % icoordpath, "%s" % jcoordpath,
+#                                       "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
+#        print out
+#        
+##        gzipped(outfn)
+##        os.remove(raw_trad_fn)
+##        os.remove(out_trad_fn)
+##        os.remove(out_view_fn)
+#        
+#    filelist = glob.glob(os.path.join(tile_path,'night_bt_flag_%s*T%03d*.gz' % (date,tile)))
+#    for i in range(len(filelist)):
+#        fn = filelist[i]
+#        time_str = fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+#        grab_time = getGrabTime(int(time_str))
+#        # use forecast hour
+#        if (grab_time)==2400:
+#            time = 0
+#        else:
+#            time = grab_time
+#        hr,forcastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+#        cfsr_date = "%d%03d" % (year,cfsr_doy)
+#        cfsr_tile_path = os.path.join(CFSR_path,"%d" % year,"%03d" % cfsr_doy)
+#        
+#
+#        #======io filenames============================================
+#        tprof = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (cfsr_date,time))
+#        qprof = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (cfsr_date,time))
+#        tsfcfile = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (cfsr_date,time))
+#        presfile = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (cfsr_date,time))
+#        qsfcfile = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (cfsr_date,time))
+#        icoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_icoord.dat" % tile)
+#        jcoordpath = os.path.join(tile_lut_path,"CFSR_T%03d_lookup_jcoord.dat" % tile)
+#        view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time_str))
+#        raw_trad_fn = os.path.join(overpass_corr_path,"RAW_TRAD1_T%03d.dat" % tile)
+#        trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d.dat" % tile)
+#        out_view_fn = os.path.join(overpass_corr_path,"VIEW_ANGLE_T%03d.dat" % tile)
+#        #=============================================================
+##        out_trad_fn = os.path.join(overpass_corr_path,"TRAD1_T%03d" % tile)
+#        gunzip(fn,out_fn=raw_trad_fn)
+#        gunzip(view_fn,out_fn= out_view_fn)
+#        outfn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat" % (date,tile,time_str))
+#        out = subprocess.check_output(["%s" % run_correction,"%s" % tprof, 
+#                                       "%s" % qprof,"%s" % tsfcfile,
+#                                       "%s" % presfile, "%s" % qsfcfile,
+#                                       "%s" % icoordpath, "%s" % jcoordpath,
+#                                       "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
+#
+#        convertBin2tif(outfn,inUL,ALEXIshape,ALEXIres)
+#        
+##        gzipped(outfn)
+##        os.remove(out_trad_fn)
+##        os.remove(out_view_fn)
+
+
+def merge_bt(tile,year,doy):
+#    merge = "merge_overpass"
+    date = "%d%03d" % (year,doy)
+    #=====georeference information=====
+    LLlat,LLlon = tile2latlon(tile)
+    URlat = LLlat+15.
+#    URlon = LLlon+15.
+    inUL = [LLlon,URlat]
+    ALEXIshape = [3750,3750]
+    ALEXIres = [0.004,0.004]
+    #=====create times text file=======
+    merge_path = os.path.join(processing_path,"MERGE_DAY_NIGHT")
+    if not os.path.exists(merge_path):
+        os.makedirs(merge_path)
+    tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
+    if not os.path.exists(tile_path):
+        os.makedirs(tile_path)
+
+    #======day=============================
+#    lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
+#    view_list_fn = os.path.join(merge_path,"view_files_T%03d.txt" % tile)
+    filelist = glob.glob(os.path.join(agg_I5_path,"day_bt11_%s_%03d*" % (date,tile)))
+#    lstfiles = []
+#    viewfiles = []
+    nfiles = len(filelist)
+    viewout = np.empty([3750,3750,nfiles])    
+    lstout = np.empty([3750,3750,nfiles]) 
+    if nfiles > 0:
+        times = []
+        for i in range(len(filelist)):
+            fn = filelist[i]
+            times.append(int(fn.split(os.sep)[-1].split("_")[4].split(".")[0]))
+        out_time = "%04d" % np.array(times).mean()
+        for i in range(len(filelist)):
+            fn = filelist[i]
+            time = fn.split(os.sep)[-1].split("_")[4].split(".")[0]
+#            times.append(time)
+#            view_fn = os.path.join(tile_path,"view_angle_%s_T%03d_%s.dat.gz" % (date,tile,time))
+            view_fn = os.path.join(agg_I5_path,"view_%s_%03d_%s.dat" % (date,tile,time))
+#            gunzip(view_fn)
+            read_data = np.fromfile(view_fn, dtype=np.float32)
+            viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+            bt_fn = os.path.join(agg_I5_path,"day_bt11_%s_%03d_%s.dat" % (date,tile,time))
+            read_data = np.fromfile(bt_fn, dtype=np.float32)
+            lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         
-#        gzipped(outfn)
-#        os.remove(out_trad_fn)
-#        os.remove(out_view_fn)
+        aa = np.reshape(viewout,[3750*3750,nfiles])
+        aa[aa==-9999.]=9999.
+        view = aa.min(axis=1)
+        indcol = np.argmin(aa,axis=1)
+        indrow = range(0,len(indcol))
+        viewmin = np.reshape(view,[3750,3750])
+        viewmin[viewmin==9999.]=-9999.
+        view = np.array(viewmin,dtype='Float32')
         
+        bb = np.reshape(lstout,[3750*3750,nfiles])
+        lst = bb[indrow,indcol]
+        lst = np.reshape(lst,[3750,3750])
+        lst = np.array(lst,dtype='Float32')
+        out_bt_fn = os.path.join(tile_path,"merged_day_bt_%s_T%03d_%s.dat" % (date,tile,out_time))
+        out_view_fn = os.path.join(tile_path,"merged_day_view_%s_T%03d_%s.dat" % (date,tile,out_time))
+        view[view>60]= -9999.
+        lst[view>60] = -9999.
+        view = np.flipud(view)
+        view.tofile(out_view_fn)
+        lst= np.flipud(lst)
+        lst.tofile(out_bt_fn)
+        convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres)
+        convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres)
+    
+    #===night=======
+    filelist = glob.glob(os.path.join(agg_I5_path,"night_bt11_%s_%03d*" % (date,tile)))
+    nfiles = len(filelist)
+    viewout = np.empty([3750,3750,nfiles])    
+    lstout = np.empty([3750,3750,nfiles])
+    if nfiles > 0:
+        times = []
+        for i in range(len(filelist)):
+            fn = filelist[i]
+            times.append(int(fn.split(os.sep)[-1].split("_")[4].split(".")[0]))
+        out_time = "%04d" % np.array(times).mean()
+        for i in range(len(filelist)):
+            fn = filelist[i]
+            time = fn.split(os.sep)[-1].split("_")[4].split(".")[0]
+            view_fn = os.path.join(agg_I5_path,"view_%s_%03d_%s.dat" % (date,tile,time))
+            read_data = np.fromfile(view_fn, dtype=np.float32)
+            viewout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+            bt_fn = os.path.join(agg_I5_path,"night_bt11_%s_%03d_%s.dat" % (date,tile,time))
+            read_data = np.fromfile(bt_fn, dtype=np.float32)
+            lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
+        aa = np.reshape(viewout,[3750*3750,nfiles])
+        aa[aa==-9999.]=9999.
+        view = aa.min(axis=1)
+        indcol = np.argmin(aa,axis=1)
+        indrow = range(0,len(indcol))
+        viewmin = np.reshape(view,[3750,3750])
+        viewmin[viewmin==9999.]=-9999.
+        view = np.array(viewmin,dtype='Float32')
+        
+        bb = np.reshape(lstout,[3750*3750,nfiles])
+        lst = bb[indrow,indcol]
+        lst = np.reshape(lst,[3750,3750])
+        lst = np.array(lst,dtype='Float32')
+        out_bt_fn = os.path.join(tile_path,"merged_night_bt_%s_T%03d_%s.dat" % (date,tile,out_time))
+        out_view_fn = os.path.join(tile_path,"merged_night_view_%s_T%03d_%s.dat" % (date,tile,out_time))
+        view[view>60]= -9999.
+        lst[view>60] = -9999.
+        view = np.flipud(view)
+        view.tofile(out_view_fn)
+        lst= np.flipud(lst)
+        lst.tofile(out_bt_fn)
+        convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres)
+        convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres)       
     
 def merge_lst(tile,year,doy):
     merge = "merge_overpass"
     date = "%d%03d" % (year,doy)
     #=====georeference information=====
-    row = tile/24
-    col = tile-(row*24)
-    ULlat= (75.-(row)*15.)
-    ULlon=(-180.+(col-1.)*15.)      
-    inUL = [ULlon,ULlat] 
+    LLlat,LLlon = tile2latlon(tile)
+    URlat = LLlat+15.
+    URlon = LLlon+15.
+    inUL = [LLlon,URlat]
     ALEXIshape = [3750,3750]
     ALEXIres = [0.004,0.004]
     #=====create times text file=======
@@ -741,9 +1056,8 @@ def merge_lst(tile,year,doy):
 #            viewfiles.append(view_fn[:-3])
             
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
-            gunzip(lst_fn)
+#            gunzip(lst_fn)
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
-            print lst_fn[:-3]
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
         
@@ -772,8 +1086,8 @@ def merge_lst(tile,year,doy):
         lst.tofile(out_lst_fn)
         convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres)
         convertBin2tif(out_lst_fn,inUL,ALEXIshape,ALEXIres)
-        gzipped(out_lst_fn)
-        gzipped(out_view_fn)
+#        gzipped(out_lst_fn)
+#        gzipped(out_view_fn)
     
     #===night=======
 #    lst_list_fn = os.path.join(merge_path,"lst_files_T%03d.txt" % tile)
@@ -798,7 +1112,7 @@ def merge_lst(tile,year,doy):
 #            viewfiles.append(view_fn[:-3])
             
             lst_fn = os.path.join(tile_path,"lst_%s_T%03d_%s.dat.gz" % (date,tile,time))
-            gunzip(lst_fn)
+#            gunzip(lst_fn)
             lst_stack = os.path.join(tile_path,"lst_stack.dat")
             read_data = np.fromfile(lst_fn[:-3], dtype=np.float32)
             lstout[:,:,i]= np.flipud(read_data.reshape([3750,3750]))
@@ -827,15 +1141,21 @@ def merge_lst(tile,year,doy):
         lst.tofile(out_lst_fn)
         convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres)
         convertBin2tif(out_lst_fn,inUL,ALEXIshape,ALEXIres)
-        gzipped(out_lst_fn)
-        gzipped(out_view_fn)
+#        gzipped(out_lst_fn)
+#        gzipped(out_view_fn)
     
     #========clean up======
-    files2remove = glob.glob(os.path.join(tile_path,"*.dat"))
-    for fn in files2remove:
-        os.remove(fn)
+#    files2remove = glob.glob(os.path.join(tile_path,"*.dat"))
+#    for fn in files2remove:
+#        os.remove(fn)
 
 def pred_dtrad(tile,year,doy):
+    LLlat,LLlon = tile2latlon(tile)
+    URlat = LLlat+15.
+    URlon = LLlon+15.
+    inUL = [LLlon,URlat]
+    ALEXIshape = [3750,3750]
+    ALEXIres = [0.004,0.004]
     tile_path = os.path.join(tile_base_path,"T%03d" % tile)
     final_dtrad_p250_fmax0 = 'final_dtrad_p250_fmax0'
     final_dtrad_p250_fmax20 = 'final_dtrad_p250_fmax20'
@@ -851,9 +1171,9 @@ def pred_dtrad(tile,year,doy):
         os.makedirs(dtrad_path) 
     
     date = "%d%03d" % (year,doy)
-    files2unzip = glob.glob(os.path.join(tile_path,"*LST_%s*.gz" % date))
-    for fn in files2unzip:
-        gunzip(fn)
+#    files2unzip = glob.glob(os.path.join(tile_path,"*LST_%s*.gz" % date))
+#    for fn in files2unzip:
+#        gunzip(fn)
             
     dtimedates = np.array(range(1,366,7))
     rday = dtimedates[dtimedates>=doy][0]
@@ -864,13 +1184,13 @@ def pred_dtrad(tile,year,doy):
     rday = laidates[laidates>=doy][0]
     laiddd="%d%03d" %(year,rday)
 
-    precip_fn = os.path.join(base,'STATIC','PRECIP','tiles','PRECIP_T%03d.dat' % tile)
-    fmax_fn = os.path.join(base,'STATIC','FMAX','tiles','FMAX_T%03d.dat' % tile)
-    terrain_fn = os.path.join(base,'STATIC','TERRAIN_SD','tiles','TERRAIN_T%03d.dat' % tile)
+    precip_fn = os.path.join(base,'STATIC','PRECIP','PRECIP_T%03d.dat' % tile)
+    fmax_fn = os.path.join(base,'STATIC','FMAX','FMAX_T%03d.dat' % tile)
+    terrain_fn = os.path.join(base,'STATIC','TERRAIN_SD','TERRAIN_T%03d.dat' % tile)
     daylst_fn = os.path.join(base,'TILES','T%03d' % tile,'FINAL_DAY_LST_%s_T%03d.dat' % (date,tile))
     nightlst_fn = os.path.join(base,'TILES','T%03d' % tile,'FINAL_NIGHT_LST_%s_T%03d.dat' % (date,tile))
-    lai_fn = os.path.join(base,'STATIC','LAI','tiles','MLAI_%s_T%03d.dat' % (laiddd,tile))
-    dtime_fn = os.path.join(base,'STATIC','DTIME','tiles','DTIME_2014%03d_T%03d.dat' % (risedoy,tile))
+    lai_fn = os.path.join(base,'STATIC','LAI','MLAI_%s_T%03d.dat' % (laiddd,tile))
+    dtime_fn = os.path.join(base,'STATIC','DTIME','DTIME_2014%03d_T%03d.dat' % (risedoy,tile))
     fn1 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp1_T%03d.dat' % tile)
     fn2 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp2_T%03d.dat' % tile)
     fn3 = os.path.join(base,'PROCESSING','DTRAD_PREDICTION','comp3_T%03d.dat' % tile)
@@ -912,6 +1232,7 @@ def pred_dtrad(tile,year,doy):
 
     subprocess.check_output(["%s" % calc_predicted_trad2,"%s" % nightlst_fn, 
                          "%s" % daylst_fn, "%s" % lai_fn, "%s" % lst_path ])
+    convertBin2tif(lst_path,inUL,ALEXIshape,ALEXIres)
 
 
 #    gzipped(lst_path)
@@ -939,14 +1260,24 @@ def pred_dtrad(tile,year,doy):
 #doy = (dd-datetime.datetime(2016,1,1)).days
 tile = 63
 year = 2015
-doy = 152
-#regrid_I5(tile,year,doy)
-#regrid_cloud(tile,year,doy)
+doy = 221
+print("gridding I5--------------->")
+regrid_I5(tile,year,doy)
+print("gridding cloud--------------->")
+regrid_cloud(tile,year,doy)
+#print("Applying Mask--------------->")
 #Apply_mask(tile,year,doy)
-getIJcoords(tile)
-getCFSRdata(year,doy)
+#getIJcoords(tile)
+print("building VIIRS coordinates LUT--------------->")
+getIJcoordsPython(tile)
+#getCFSRdata(year,doy)
+print("merging BT--------------->")
+merge_bt(tile,year,doy)
+print("running atmosperic correction--------------->")
 atmosCorrection(tile,year,doy)
+#print("merging LST--------------->")
 #merge_lst(tile,year,doy)
+#print("predicting dtrad--------------->")
 #pred_dtrad(tile,year,doy)
 
 #=====convert to geotiff=================
