@@ -72,7 +72,7 @@ write(6,*) radini(3001,3001), satang(3001,3001)
 tc15(:,:) = -9999.
 tc55(:,:) = -9999.
 lst(:,:) = -9999.
-qsfc = qsfc1/1000.
+
 !call fsin
 call wndo
 
