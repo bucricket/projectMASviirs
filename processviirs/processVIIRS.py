@@ -22,7 +22,9 @@ import subprocess
 from osgeo.gdalconst import GA_ReadOnly
 from joblib import Parallel, delayed
 import time as timer
-
+from pyresample.ewa import ll2cr, fornav
+import warnings
+warnings.filterwarnings("ignore",category =RuntimeWarning)
 
 #========utility functions=====================================================
 def folders(base):
@@ -68,6 +70,12 @@ def folders(base):
     fsun_trees_path = os.path.join(processing_path,'FSUN_TREES')
     if not os.path.exists(fsun_trees_path):
         os.makedirs(fsun_trees_path)
+    rnet_tile_path = os.path.join(calc_rnet_path,'tiles')
+    if not os.path.exists(rnet_tile_path):
+        os.makedirs(rnet_tile_path) 
+    dtrad_path = os.path.join(processing_path,'DTRAD_PREDICTION')
+    if not os.path.exists(dtrad_path):
+        os.makedirs(dtrad_path)
     out = {'grid_I5_path':grid_I5_path,'grid_I5_temp_path':grid_I5_temp_path,
            'agg_I5_path':agg_I5_path,'data_path':data_path,
            'cloud_grid': cloud_grid,'temp_cloud_data':temp_cloud_data,
@@ -75,7 +83,7 @@ def folders(base):
            'static_path':static_path,'tile_base_path':tile_base_path,
            'overpass_correction_path':overpass_correction_path,
            'CFSR_path':CFSR_path,'calc_rnet_path':calc_rnet_path,
-           'fsun_trees_path':fsun_trees_path}
+           'fsun_trees_path':fsun_trees_path,'rnet_tile_path':rnet_tile_path}
     return out
 
 base = os.getcwd()
@@ -94,6 +102,7 @@ overpass_corr_path = Folders['overpass_correction_path']
 CFSR_path = Folders['CFSR_path']
 calc_rnet_path = Folders['calc_rnet_path']
 fsun_trees_path = Folders['fsun_trees_path']
+rnet_tile_path = Folders['rnet_tile_path']
 
 
 def tile2latlon(tile):
@@ -574,6 +583,30 @@ def readCubistOut(input,outDF):
             lstOut[np.where(rule2use)] = eval('(%s)' % formula)
             lstOut[np.where(mask)] = -9999.
     return lstOut  
+
+def planck(X,ANV):
+    C1=1.191E-9
+    C2=1.439
+    C1P = C1*ANV**3		# different wavelength##
+    C2P = C2*ANV
+    return C1P/(np.exp(C2P/X)-1.)
+
+def invplanck(X,ANV):
+    C1=1.191E-9
+    C2=1.439
+    C1P = C1*ANV**3
+    C2P = C2*ANV
+    return C2P/np.log(1.+C1P/X)
+
+#  This function contains an empirical correction for absorption
+#  by non-water-vapor constituents.  It was developed in comparison
+#  with a series of MODTRAN experiments.     
+# FUNCTION DTAUDP(WAVENUMBER,TEMPERATURE,VAPOR PRESSURE,PRESSURE)
+def dtaudp(W,X,Y,Z):
+    GO=9.78
+    DTAUDP1=(4.18+5578.*np.exp((-7.87E-3)*W))*np.exp(1800.*
+            (1.0/X-1.0/296.))*(Y/Z+.002)*(.622/(101.3*GO))*Y
+    return DTAUDP1+(0.00004+Y/60000.)
 #=======functions for processing===============================================
 #==============================================================================
     
@@ -801,6 +834,448 @@ def getIJcoordsPython(tile):
     jcormat = np.array(jcormat,dtype='int32')
     jcormat.tofile(jcoordpath)
     
+def gridMergePythonEWA(tile,year,doy):
+    tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
+    if not os.path.exists(tile_path):
+        os.makedirs(tile_path)
+    dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
+    date = "%d%03d" % (year,doy)
+    LLlat,LLlon = tile2latlon(tile)
+    URlat = LLlat+15.
+    URlon = LLlon+15.
+    inUL = [LLlon,URlat]
+    ALEXIshape = [3750,3750]
+    ALEXIres = [0.004,0.004]
+    latmid = LLlat+7.5
+    lonmid = LLlon+7.5
+    db = pd.read_csv(os.path.join(data_path,'I5_database.csv'))
+    db = pd.DataFrame.drop_duplicates(db)
+    
+    
+    #=====================Day==================================================
+    #==========================================================================
+    files = db[(db['south']-5 <= latmid) & (db['north']+5 >= latmid) & 
+               (db['west']-5 <= lonmid) & (db['east']+5 >= lonmid) & 
+               (db['year'] == year) & (db['doy'] == doy) & (db['N_Day_Night_Flag'] == 'Day')]
+    filenames = files['filename']
+
+    orbits = []
+    for fn in filenames:
+        parts = fn.split(os.sep)[-1].split('_')
+        orbits.append(parts[5])
+    orbits = list(set(orbits)) 
+    orbitcount = 0
+    for orbit in orbits:   
+        fns = [s for s in filenames if orbit in s.lower()]
+        count = 0
+        for filename in fns:
+            count+=1
+            folder = os.sep.join(filename.split(os.sep)[:-1])
+            parts = filename.split(os.sep)[-1].split('_')
+            search_geofile = os.path.join(folder,"*"+"_".join(("GITCO",parts[1],parts[2],parts[3],parts[4])))
+            geofile = glob.glob(search_geofile+'*')[0]
+            search_geofile = os.path.join(folder,"*"+"_".join(("GMTCO",parts[1],parts[2],parts[3],parts[4])))
+            datet = datetime.datetime(year,dd.month, dd.day,0,0,0)
+            if datet > datetime.datetime(2017,3,8,0,0,0):
+               search_cloudfile = os.path.join(folder,"*"+"_".join(("VICMO",parts[1],parts[2],parts[3],parts[4]))) 
+            else:
+               search_cloudfile = os.path.join(folder,"*"+"_".join(("IICMO",parts[1],parts[2],parts[3],parts[4])))
+            cloudgeofile = glob.glob(search_geofile+'*')[0]
+            cloudfile = glob.glob(search_cloudfile+'*')[0]
+            
+            # load cloud data==========
+            f=h5py.File(cloudfile,'r')
+            g=h5py.File(cloudgeofile,'r')
+            data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
+            lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
+            lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
+            view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
+            
+            start=filename.find('_t')
+            out_time=filename[start+2:start+6]
+            
+            if count ==1:
+                latcloud = np.array(lat_array,'float32')
+                loncloud=np.array(lon_array,'float32')
+                cloud=np.array(data_array,'float32')
+                viewcloud=np.array(view_array,'float32')
+            else:
+                latcloud = np.vstack((latcloud,np.array(lat_array,'float32')))
+                loncloud = np.vstack((loncloud,np.array(lon_array,'float32')))
+                cloud = np.vstack((cloud,np.array(data_array,'float32')))
+                viewcloud = np.vstack((viewcloud,np.array(view_array,'float32')))
+                
+#            meta_dict = get_VIIRS_bounds(filename)
+            f=h5py.File(filename,'r')
+            g=h5py.File(geofile,'r')
+            data_array = f['/All_Data/VIIRS-I5-SDR_All/BrightnessTemperature'][()]
+            lat_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Latitude'][()]
+            lon_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Longitude'][()]
+            view_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/SatelliteZenithAngle'][()]
+            if count ==1:
+                lat=np.array(lat_array,'float32')
+                lon=np.array(lon_array,'float32')
+                data=np.array(data_array,'float32')
+                view=np.array(view_array,'float32')
+            else:
+                lat = np.vstack((lat,np.array(lat_array,'float32')))
+                lon = np.vstack((lon,np.array(lon_array,'float32')))
+                data = np.vstack((data,np.array(data_array,'float32')))
+                view = np.vstack((view,np.array(view_array,'float32')))
+        #====cloud gridding=====================
+        cloudOrig=cloud.copy()
+        #get 2-3 bits
+        cloud=np.array(cloud,'uint8')
+        cloud = np.reshape(cloud,[cloud.size, 1])
+        b = np.unpackbits(cloud, axis=1)
+        cloud = np.sum(b[:,4:6],axis=1)
+        cloud = np.reshape(cloud,[cloudOrig.shape[0],cloudOrig.shape[1]])
+        cloud = np.array(cloud, dtype='float32')
+        mask = (cloudOrig==0.)
+        cloud[mask]=np.nan
+        viewcloud[mask]=np.nan
+        #=====check if data is in range========================================
+        rangeIndex = ((latcloud<-90.) | (latcloud > 90.) | (loncloud < -180.) | (loncloud > 180.))
+        latcloud[rangeIndex] = np.nan
+        loncloud[rangeIndex] = np.nan
+        cloud[rangeIndex] = np.nan
+        viewcloud[rangeIndex] = np.nan
+        if np.nansum(cloud)==0: # check if there is any data
+            continue
+
+        projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
+        area_id ='tile'
+        proj_id = 'latlon'
+        description = 'lat lon grid'
+
+        swath_def = geometry.SwathDefinition(lons=loncloud, lats=latcloud)
+        x_size = 3750
+        y_size = 3750
+        area_extent = (LLlon,LLlat,URlon,URlat)
+        area_def = utils.get_area_def(area_id, description, proj_id, projection,
+                                                   x_size, y_size, area_extent)
+        swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
+        rows_per_scan = 16
+        try: # if there are no valid pixels in the region move on
+            num_valid_points, gridded_cloud = fornav(cols, rows, area_def, cloud, rows_per_scan=rows_per_scan)
+            orbitcount+=1
+        except:
+            continue
+        try:
+            num_valid_points, gridded_cloudview = fornav(cols, rows, area_def, viewcloud, rows_per_scan=rows_per_scan)
+        except:
+            continue
+        
+        gridded_cloud[gridded_cloudview>60.0]=np.nan
+        #stack data
+        if orbitcount==1:
+            cloud_stack = gridded_cloud
+            cloudview_stack = gridded_cloudview
+        else:
+            cloud_stack = np.dstack((cloud_stack,gridded_cloud))
+            cloudview_stack = np.dstack((cloudview_stack,gridded_cloudview))
+            
+        #==LST gridding===========================
+        mask = (data>65527.)
+        data[mask]=np.nan
+        view[mask]=np.nan
+        #=====check if data is in range========================================
+        rangeIndex = ((lat<-90.) | (lat > 90.) | (lon < -180.) | (lon > 180.))
+        lat[rangeIndex] = np.nan
+        lon[rangeIndex] = np.nan
+        data[rangeIndex] = np.nan
+        view[rangeIndex] = np.nan
+        
+        if np.nansum(data)==0: # check if there is any data
+            continue
+        projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
+        area_id ='tile'
+        proj_id = 'latlon'
+        description = 'lat lon grid'
+
+        swath_def = geometry.SwathDefinition(lons=lon, lats=lat)
+        x_size = 3750
+        y_size = 3750
+        area_extent = (LLlon,LLlat,URlon,URlat)
+        area_def = utils.get_area_def(area_id, description, proj_id, projection,
+                                                   x_size, y_size, area_extent)
+        swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
+        rows_per_scan = 32
+        try: # if there are no valid pixels in the region move on
+            num_valid_points, gridded_data = fornav(cols, rows, area_def, data, rows_per_scan=rows_per_scan)
+        except:
+            continue
+        try:
+            num_valid_points, gridded_view = fornav(cols, rows, area_def, view, rows_per_scan=rows_per_scan)
+        except:
+            continue
+        
+        lst = gridded_data*0.00351+150.0
+        lst[gridded_view>60.0]=np.nan
+        #stack data
+        if orbitcount==1:
+            lst_stack = lst
+            view_stack = gridded_view
+        else:
+            lst_stack = np.dstack((lst_stack,lst))
+            view_stack = np.dstack((view_stack,gridded_view))
+
+    #=========CLOUD:doing angle clearing======================================
+    if cloudview_stack.ndim == 2:  
+        dims = [cloudview_stack.shape[0],cloudview_stack.shape[0],1]
+    else:
+        dims = cloudview_stack.shape     
+    aa = np.reshape(cloudview_stack,[dims[0]*dims[1],dims[2]])
+    aa[np.isnan(aa)]=9999.
+    indcol = np.argmin(aa,axis=1)
+    indrow = range(0,len(indcol))
+    bb = np.reshape(cloud_stack,[dims[0]*dims[1],dims[2]])
+    cloud = bb[indrow,indcol]
+    cloud = np.reshape(cloud,[3750,3750])
+    #=========BT:doing angle and cloud clearing================================     
+    aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+    aa[np.isnan(aa)]=9999.
+    indcol = np.argmin(aa,axis=1)
+    indrow = range(0,len(indcol))
+    bb = np.reshape(lst_stack,[dims[0]*dims[1],dims[2]])
+    lst = bb[indrow,indcol]
+    lst = np.reshape(lst,[3750,3750])
+    lst = np.array(lst,dtype='Float32')
+#    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
+    out_bt_fn = os.path.join(tile_path,"merged_day_bt_%s_T%03d_%s.dat" % (date,tile,out_time))
+    lst[cloud>1]=np.nan
+    lst.tofile(out_bt_fn)
+    convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32) 
+    
+    #=========VIEW:doing angle and cloud clearing================================     
+    aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+    aa[np.isnan(aa)]=9999.
+    indcol = np.argmin(aa,axis=1)
+    indrow = range(0,len(indcol))
+    bb = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+    view = bb[indrow,indcol]
+    view = np.reshape(view,[3750,3750])
+    view = np.array(view,dtype='Float32')
+#    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
+    out_view_fn = os.path.join(tile_path,"merged_day_view_%s_T%03d_%s.dat" % (date,tile,out_time))
+    view[cloud>1]=np.nan
+    view.tofile(out_view_fn)
+    convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+    
+    #=====================Night================================================
+    #==========================================================================
+    files = db[(db['south']-5 <= latmid) & (db['north']+5 >= latmid) & 
+               (db['west']-5 <= lonmid) & (db['east']+5 >= lonmid) & 
+               (db['year'] == year) & (db['doy'] == doy) & (db['N_Day_Night_Flag'] == 'Night')]
+    filenames = files['filename']
+
+    orbits = []
+    for fn in filenames:
+        parts = fn.split(os.sep)[-1].split('_')
+        orbits.append(parts[5])
+    orbits = list(set(orbits)) 
+    orbitcount = 0
+    for orbit in orbits:           
+        fns = [s for s in filenames if orbit in s.lower()]
+        count = 0
+        for filename in fns:
+            count+=1
+            folder = os.sep.join(filename.split(os.sep)[:-1])
+            parts = filename.split(os.sep)[-1].split('_')
+            search_geofile = os.path.join(folder,"*"+"_".join(("GITCO",parts[1],parts[2],parts[3],parts[4])))
+            geofile = glob.glob(search_geofile+'*')[0]
+            search_geofile = os.path.join(folder,"*"+"_".join(("GMTCO",parts[1],parts[2],parts[3],parts[4])))
+            datet = datetime.datetime(year,dd.month, dd.day,0,0,0)
+            if datet > datetime.datetime(2017,3,8,0,0,0):
+               search_cloudfile = os.path.join(folder,"*"+"_".join(("VICMO",parts[1],parts[2],parts[3],parts[4]))) 
+            else:
+               search_cloudfile = os.path.join(folder,"*"+"_".join(("IICMO",parts[1],parts[2],parts[3],parts[4])))
+            cloudgeofile = glob.glob(search_geofile+'*')[0]
+            cloudfile = glob.glob(search_cloudfile+'*')[0]
+            
+            # load cloud data==========
+            f=h5py.File(cloudfile,'r')
+            g=h5py.File(cloudgeofile,'r')
+            data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
+            lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
+            lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
+            view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
+            
+            start=filename.find('_t')
+            out_time=filename[start+2:start+6]
+            
+            if count ==1:
+                latcloud = np.array(lat_array,'float32')
+                loncloud=np.array(lon_array,'float32')
+                cloud=np.array(data_array,'float32')
+                viewcloud=np.array(view_array,'float32')
+            else:
+                latcloud = np.vstack((latcloud,np.array(lat_array,'float32')))
+                loncloud = np.vstack((loncloud,np.array(lon_array,'float32')))
+                cloud = np.vstack((cloud,np.array(data_array,'float32')))
+                viewcloud = np.vstack((viewcloud,np.array(view_array,'float32')))
+                
+#            meta_dict = get_VIIRS_bounds(filename)
+            f=h5py.File(filename,'r')
+            g=h5py.File(geofile,'r')
+            data_array = f['/All_Data/VIIRS-I5-SDR_All/BrightnessTemperature'][()]
+            lat_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Latitude'][()]
+            lon_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Longitude'][()]
+            view_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/SatelliteZenithAngle'][()]
+            if count ==1:
+                lat=np.array(lat_array,'float32')
+                lon=np.array(lon_array,'float32')
+                data=np.array(data_array,'float32')
+                view=np.array(view_array,'float32')
+            else:
+                lat = np.vstack((lat,np.array(lat_array,'float32')))
+                lon = np.vstack((lon,np.array(lon_array,'float32')))
+                data = np.vstack((data,np.array(data_array,'float32')))
+                view = np.vstack((view,np.array(view_array,'float32')))
+        #====cloud gridding=====================
+        cloudOrig=cloud.copy()
+        #get 2-3 bits
+        cloud=np.array(cloud,'uint8')
+        cloud = np.reshape(cloud,[cloud.size, 1])
+        b = np.unpackbits(cloud, axis=1)
+        cloud = np.sum(b[:,4:6],axis=1)
+        cloud = np.reshape(cloud,[cloudOrig.shape[0],cloudOrig.shape[1]])
+        cloud = np.array(cloud, dtype='float32')
+        mask = (cloudOrig==0.)
+        cloud[mask]=np.nan
+        viewcloud[mask]=np.nan
+        #=====check if data is in range========================================
+        rangeIndex = ((latcloud<-90.) | (latcloud > 90.) | (loncloud < -180.) | (loncloud > 180.))
+        latcloud[rangeIndex] = np.nan
+        loncloud[rangeIndex] = np.nan
+        cloud[rangeIndex] = np.nan
+        viewcloud[rangeIndex] = np.nan
+        
+        if np.nansum(cloud)==0: # check if there is any data
+            continue
+        
+        projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
+        area_id ='tile'
+        proj_id = 'latlon'
+        description = 'lat lon grid'
+
+        swath_def = geometry.SwathDefinition(lons=loncloud, lats=latcloud)
+        x_size = 3750
+        y_size = 3750
+        area_extent = (LLlon,LLlat,URlon,URlat)
+        area_def = utils.get_area_def(area_id, description, proj_id, projection,
+                                                   x_size, y_size, area_extent)
+        swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
+        rows_per_scan = 16
+        try: # if there are no valid pixels in the region move on
+            num_valid_points, gridded_cloud = fornav(cols, rows, area_def, cloud, rows_per_scan=rows_per_scan)
+            orbitcount+=1
+        except:
+            continue
+        try:
+            num_valid_points, gridded_cloudview = fornav(cols, rows, area_def, viewcloud, rows_per_scan=rows_per_scan)
+        except:
+            continue
+        
+        
+        gridded_cloud[gridded_cloudview>60.0]=np.nan
+        #stack data
+        if orbitcount==1:
+            cloud_stack = gridded_cloud
+            cloudview_stack = gridded_cloudview
+        else:
+            cloud_stack = np.dstack((cloud_stack,gridded_cloud))
+            cloudview_stack = np.dstack((cloudview_stack,gridded_cloudview))
+            
+        #==LST gridding===========================
+        mask = (data>65527.)
+        data[mask]=np.nan
+        view[mask]=np.nan
+        #=====check if data is in range========================================
+        rangeIndex = ((lat<-90.) | (lat > 90.) | (lon < -180.) | (lon > 180.))
+        lat[rangeIndex] = np.nan
+        lon[rangeIndex] = np.nan
+        data[rangeIndex] = np.nan
+        view[rangeIndex] = np.nan
+        if np.nansum(data)==0: # check if there is any data
+            continue
+
+        projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
+        area_id ='tile'
+        proj_id = 'latlon'
+        description = 'lat lon grid'
+
+        swath_def = geometry.SwathDefinition(lons=lon, lats=lat)
+        x_size = 3750
+        y_size = 3750
+        area_extent = (LLlon,LLlat,URlon,URlat)
+        area_def = utils.get_area_def(area_id, description, proj_id, projection,
+                                                   x_size, y_size, area_extent)
+        swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
+        rows_per_scan = 32
+        try: # if there are no valid pixels in the region move on
+            num_valid_points, gridded_data = fornav(cols, rows, area_def, data, rows_per_scan=rows_per_scan)
+        except:
+            continue
+        try:
+            num_valid_points, gridded_view = fornav(cols, rows, area_def, view, rows_per_scan=rows_per_scan)
+        except:
+            continue
+        
+        lst = gridded_data*0.00351+150.0
+        lst[gridded_view>60.0]=-9999.
+        #stack data
+        if orbitcount==1:
+            lst_stack = lst
+            view_stack = gridded_view
+        else:
+            lst_stack = np.dstack((lst_stack,lst))
+            view_stack = np.dstack((view_stack,gridded_view))
+
+    #=========CLOUD:doing angle clearing====================================== 
+    if cloudview_stack.ndim == 2:  
+        dims = [cloudview_stack.shape[0],cloudview_stack.shape[0],1]
+    else:
+        dims = cloudview_stack.shape
+        
+    aa = np.reshape(cloudview_stack,[dims[0]*dims[1],dims[2]])
+    aa[np.isnan(aa)]=9999.
+    indcol = np.argmin(aa,axis=1)
+    indrow = range(0,len(indcol))
+    bb = np.reshape(cloud_stack,[dims[0]*dims[1],dims[2]])
+    cloud = bb[indrow,indcol]
+    cloud = np.reshape(cloud,[3750,3750])
+    #=========BT:doing angle and cloud clearing================================     
+    aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+    aa[np.isnan(aa)]=9999.
+    indcol = np.argmin(aa,axis=1)
+    indrow = range(0,len(indcol))
+    bb = np.reshape(lst_stack,[dims[0]*dims[1],dims[2]])
+    lst = bb[indrow,indcol]
+    lst = np.reshape(lst,[3750,3750])
+    lst = np.array(lst,dtype='Float32')
+#    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
+    out_bt_fn = os.path.join(tile_path,"merged_night_bt_%s_T%03d_%s.dat" % (date,tile,out_time))
+    lst[cloud>1]=-9999.
+    lst.tofile(out_bt_fn)
+    convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+    
+    #=========VIEW:doing angle and cloud clearing================================     
+    aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+    aa[np.isnan(aa)]=9999.
+    indcol = np.argmin(aa,axis=1)
+    indrow = range(0,len(indcol))
+    bb = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+    view = bb[indrow,indcol]
+    view = np.reshape(view,[3750,3750])
+    view = np.array(view,dtype='Float32')
+#    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
+    out_view_fn = os.path.join(tile_path,"merged_night_view_%s_T%03d_%s.dat" % (date,tile,out_time))
+    view[cloud>1]=np.nan
+    view.tofile(out_view_fn)
+    convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+    
+    
 def gridMergePython(tile,year,doy):
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
     if not os.path.exists(tile_path):
@@ -904,10 +1379,13 @@ def gridMergePython(tile,year,doy):
         mergecloud = np.reshape(mergecloud,[mergecloud.size, 1])
         b = np.unpackbits(mergecloud, axis=1)
         mergecloud = np.sum(b[:,4:6],axis=1)
-        mergelat = ma.array(mergelat, mask = (mergedata>65527.))
-        mergelon = ma.array(mergelon, mask = (mergedata>65527.))
-        mergecloudlat = ma.array(mergecloudlat, mask = (mergecloudOrig==0.))
-        mergecloudlon = ma.array(mergecloudlon, mask = (mergecloudOrig==0.))
+        
+        mergelat = ma.array(mergelat, mask = (mergedata>65527.),copy=False)
+        mergelon = ma.array(mergelon, mask = (mergedata>65527.),copy=False)
+        mergedata = ma.array(mergedata, mask = (mergedata>65527.),copy=False)
+        mergecloudlat = ma.array(mergecloudlat, mask = (mergecloudOrig==0.),copy=False)
+        mergecloudlon = ma.array(mergecloudlon, mask = (mergecloudOrig==0.),copy=False)
+        mergecloud = ma.array(mergecloud, mask = (mergecloudOrig==0.),copy=False)
 
         
         projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
@@ -924,13 +1402,15 @@ def gridMergePython(tile,year,doy):
 #        swath_con = image.ImageContainerNearest(mergecloud, swath_def, radius_of_influence=5000)
 #        area_con = swath_con.resample(area_def)
 #        cloud = area_con.image_data
-        cloud = kd_tree.resample_nearest(swath_def, mergecloud.ravel(),area_def, radius_of_influence=500)
-        
+        cloud = kd_tree.resample_nearest(swath_def, mergecloud.ravel(),area_def, radius_of_influence=500, fill_value=None)
+        inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+        outfn = os.path.join(tile_path,"cloud_day.tif")
+        writeArray2Tiff(cloud,ALEXIres,inUL,inProjection,outfn,gdal.GDT_Float32)
         swath_def = geometry.SwathDefinition(lons=mergelon, lats=mergelat)
 #        swath_con = image.ImageContainerNearest(mergedata, swath_def, radius_of_influence=5000)
 #        area_con = swath_con.resample(area_def)
 #        lst = area_con.image_data*0.00351+150.0
-        gridded = kd_tree.resample_nearest(swath_def, mergedata.ravel(),area_def, radius_of_influence=500)
+        gridded = kd_tree.resample_nearest(swath_def, mergedata.ravel(),area_def, radius_of_influence=500, fill_value=None)
         lst = gridded*0.00351+150.0
         lst[lst==150]=-9999.
         lst[cloud>1]=-9999.
@@ -942,7 +1422,7 @@ def gridMergePython(tile,year,doy):
 #        swath_con = image.ImageContainerNearest(mergeview, swath_def, radius_of_influence=5000)
 #        area_con = swath_con.resample(area_def)
 #        view = area_con.image_data
-        view = kd_tree.resample_nearest(swath_def, mergeview.ravel(),area_def, radius_of_influence=500)
+        view = kd_tree.resample_nearest(swath_def, mergeview.ravel(),area_def, radius_of_influence=500, fill_value=None)
         out_view_fn =os.path.join(tile_path,"merged_day_view_%s_T%03d_%s.dat" % (date,tile,out_time))
         view[view==0]=-9999.
         view[cloud>1]=-9999.
@@ -1036,10 +1516,14 @@ def gridMergePython(tile,year,doy):
         mergecloud = np.reshape(mergecloud,[mergecloud.size, 1])
         b = np.unpackbits(mergecloud, axis=1)
         mergecloud = np.sum(b[:,4:6],axis=1)
-        mergelat = ma.array(mergelat, mask = (mergedata>65527.))
-        mergelon = ma.array(mergelon, mask = (mergedata>65527.))
-        mergecloudlat = ma.array(mergecloudlat, mask = (mergecloudOrig==0.))
-        mergecloudlon = ma.array(mergecloudlon, mask = (mergecloudOrig==0.))
+
+        mergelat = ma.array(mergelat, mask = (mergedata>65527.),copy=False)
+        mergelon = ma.array(mergelon, mask = (mergedata>65527.),copy=False)
+        mergedata = ma.array(mergedata, mask = (mergedata>65527.),copy=False)
+        mergecloudlat = ma.array(mergecloudlat, mask = (mergecloudOrig==0.),copy=False)
+        mergecloudlon = ma.array(mergecloudlon, mask = (mergecloudOrig==0.),copy=False)
+        mergecloud = ma.array(mergecloud, mask = (mergecloudOrig==0.),copy=False)
+
         
         projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
         area_id ='tile'
@@ -1055,14 +1539,14 @@ def gridMergePython(tile,year,doy):
 #        swath_con = image.ImageContainerNearest(mergecloud, swath_def, radius_of_influence=5000)
 #        area_con = swath_con.resample(area_def)
 #        cloud = area_con.image_data
-        cloud = kd_tree.resample_nearest(swath_def, mergecloud.ravel(),area_def, radius_of_influence=500)
+        cloud = kd_tree.resample_nearest(swath_def, mergecloud.ravel(),area_def, radius_of_influence=500, fill_value=None)
         
         
         swath_def = geometry.SwathDefinition(lons=mergelon, lats=mergelat)
 #        swath_con = image.ImageContainerNearest(mergedata, swath_def, radius_of_influence=5000)
 #        area_con = swath_con.resample(area_def)
 #        lst = area_con.image_data*0.00351+150.0
-        gridded = kd_tree.resample_nearest(swath_def, mergedata.ravel(),area_def, radius_of_influence=500)
+        gridded = kd_tree.resample_nearest(swath_def, mergedata.ravel(),area_def, radius_of_influence=500, fill_value=None)
         lst = gridded*0.00351+150.0
         lst[lst==150]=-9999.
         lst[cloud>1]=-9999.
@@ -1076,7 +1560,7 @@ def gridMergePython(tile,year,doy):
 #        area_con = swath_con.resample(area_def)
 #        view = area_con.image_data
         
-        view = kd_tree.resample_nearest(swath_def, mergeview.ravel(),area_def, radius_of_influence=500)
+        view = kd_tree.resample_nearest(swath_def, mergeview.ravel(),area_def, radius_of_influence=500, fill_value=None)
 
         out_view_fn =os.path.join(tile_path,"merged_night_view_%s_T%03d_%s.dat" % (date,tile,out_time))
         view[view==0]=-9999.
@@ -1244,6 +1728,276 @@ def atmosCorrection(tile,year,doy):
                                    "%s" % trad_fn,"%s" % out_view_fn, "%s" % outfn])
 
     convertBin2tif(outfn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+    
+def atmosCorrectPython(tile,year,doy):
+    tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
+    LLlat,LLlon = tile2latlon(tile)
+    URlat = LLlat+15.
+    inUL = [LLlon,URlat]
+    ALEXIshape = [3750,3750]
+    ALEXIres = [0.004,0.004]
+    day_minus_coeff = [0.0504,1.384,2.415,3.586,4.475,4.455]
+    day_minus_b=[-0.023,0.003,0.088,0.221,0.397,0.606]
+
+    
+    #====get week date=====
+    nweek=(doy-1)/7
+    cday=nweek*7
+    offset=(doy-cday)/7
+    rday=((offset+nweek)*7)+1
+    avgddd=2014*1000+rday 
+    date = "%d%03d" % (year,doy)
+    #=========================
+    istart = abs(-89.875+URlat)*4
+    addArray = np.floor(np.array(range(3750))*0.004/0.25)
+    icor = istart+addArray
+    icormat = np.repeat(np.reshape(icor,[icor.size,1]),3750,axis=1)
+    icormat = icormat.T
+    icormat = np.array(icormat,dtype='int32')
+    icormat = np.reshape(icormat,[3750*3750,1])
+     
+    
+    jstart = (180+LLlon)*4
+    jcor = jstart+addArray
+    jcormat = np.repeat(np.reshape(jcor,[jcor.size,1]),3750,axis=1)
+    jcormat = np.array(jcormat,dtype='int32')
+    jcormat = np.reshape(jcormat,[3750*3750,1])
+    
+    #=========================Day==============================================
+    #==========================================================================
+    out_bt_fn = glob.glob(os.path.join(tile_path,"merged_day_bt_%s_T%03d*.dat" % (date,tile)))[0]
+    out_view_fn1 = glob.glob(os.path.join(tile_path,"merged_day_view_%s_T%03d*.dat" % (date,tile)))[0]
+    time_str = out_bt_fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+    grab_time = getGrabTime(int(time_str))
+    #===========use forecast hour==============================================
+    if (grab_time)==2400:
+        time = 0000
+    else:
+        time = grab_time
+    hr,forcastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+    cfsr_date = "%d%03d" % (year,cfsr_doy)
+    cfsr_tile_path = os.path.join(CFSR_path,"%d" % year,"%03d" % cfsr_doy)
+    
+    temp_prof_fn = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (cfsr_date,time))
+    spfh_prof_fn = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (cfsr_date,time))
+    sfc_temp_fn  = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (cfsr_date,time))
+    sfc_pres_fn = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (cfsr_date,time))
+    sfc_spfh_fn = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (cfsr_date,time))
+    overpass_corr_cache = os.path.join(static_path,"OVERPASS_OFFSET_CORRECTION")
+    ztime_fn = os.path.join(overpass_corr_path,"CURRENT_DAY_ZTIME_T%03d.dat" % tile)
+    gunzip(os.path.join(overpass_corr_cache,"DAY_ZTIME_T%03d.dat.gz" % tile),
+       out_fn=ztime_fn)
+    ztime= np.fromfile(ztime_fn, dtype=np.float32)
+    dztime= ztime.reshape([3750,3750])
+    dtrad_cache = os.path.join(static_path,"dtrad_avg")
+    dtrad_fn =os.path.join(overpass_corr_path,"CURRENT_DTRAD_AVG_T%03d.dat" % tile)
+    gunzip(os.path.join(dtrad_cache,"DTRAD_T%03d_%d.dat.gz" % (tile,avgddd)),
+       out_fn=dtrad_fn)
+    dtrad= np.fromfile(dtrad_fn, dtype=np.float32)
+    dtrad= np.flipud(dtrad.reshape([3750,3750]))
+    convertBin2tif(ztime_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+    convertBin2tif(dtrad_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+
+    #==============preparing data==============================================
+    day_lst = np.fromfile(out_bt_fn, dtype=np.float32)
+    day_lst= day_lst.reshape([3750,3750])
+    
+    ###=====python version=====================================================
+    ctime = int(time_str)/100.
+    tdiff_day=abs(ctime-dztime)
+    tindex1=np.array(tdiff_day, dtype=int)
+    tindex2=tindex1+1
+    tindex1[np.where((day_lst==-9999.) | (dtrad==-9999.))]=0
+    tindex2[np.where((day_lst==-9999.) | (dtrad==-9999.))]=0
+    w2=(tdiff_day-tindex1)
+    w1=(1.0-w2)
+    c1 = np.empty([3750,3750])
+    c2 = np.empty([3750,3750])
+    day_corr = np.empty([3750,3750])
+    for i in range(1,len(day_minus_coeff)-1):
+        c1[np.where(tindex1==i)]=day_minus_coeff[i]+(day_minus_b[i]*dtrad[np.where(tindex1==i)])
+        c2[np.where(tindex2==i+1)]=day_minus_coeff[i+1]+(day_minus_b[i+1]*dtrad[np.where(tindex2==i+1)])
+        day_corr[np.where(tindex1==i)] = day_lst[np.where(tindex1==i)]+(c1[np.where(tindex1==i)]*w1[np.where(tindex1==i)]+c2[np.where(tindex1==i)]*w2[np.where(tindex1==i)])
+    day_corr[np.where(tindex1<1)] = day_lst[np.where(tindex1<1)]+c2[np.where(tindex1<1)]*w2[np.where(tindex1<1)]
+    day_corr[np.where(dtrad==-9999.)]=-9999.
+    day_corr = np.array(np.flipud(day_corr),dtype='Float32')
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    outfn = os.path.join(tile_path,"tindex1.tif")
+    writeArray2Tiff(tindex1,ALEXIres,inUL,inProjection,outfn,gdal.GDT_Float32)
+
+    
+    #=======run atmospheric correction=========================================
+    
+    view = np.fromfile(out_view_fn1, dtype=np.float32)
+    view = view.reshape([3750,3750])
+    
+    spfh_prof = np.fromfile(spfh_prof_fn, dtype=np.float32)
+    spfh_prof = spfh_prof.reshape([21,720,1440])
+    
+    temp_prof = np.fromfile(temp_prof_fn, dtype=np.float32)
+    temp_prof = temp_prof.reshape([21,720,1440])
+    
+    temp_prof1 = np.empty([21,720,1440])
+    for i in range(21):
+        temp_prof1[i,:,:] = np.flipud(np.squeeze(temp_prof[i,:,:]))
+        
+    spfh_prof1 = np.empty([21,720,1440])
+    for i in range(21):
+        spfh_prof1[i,:,:] = np.flipud(np.squeeze(spfh_prof[i,:,:]))
+    trad = day_corr
+    trad = day_lst
+    trad = np.reshape(trad,[3750*3750,1])
+    
+    sfc_temp = np.fromfile(sfc_temp_fn, dtype=np.float32)
+    sfc_temp = np.flipud(sfc_temp.reshape([720,1440]))   
+    sfc_pres = np.fromfile(sfc_pres_fn, dtype=np.float32)
+    sfc_pres = np.flipud(sfc_pres.reshape([720,1440]))    
+    sfc_spfh = np.fromfile(sfc_spfh_fn, dtype=np.float32)
+    sfc_spfh = np.flipud(sfc_spfh.reshape([720,1440]))
+    sfc_temp = np.reshape(sfc_temp,[720*1440,1])
+    sfc_pres = np.reshape(sfc_pres,[720*1440,1])
+    sfc_spfh = np.reshape(sfc_spfh,[720*1440,1])    
+    temp_prof = np.reshape(temp_prof1,[21,720*1440]).T
+    spfh_prof = np.reshape(spfh_prof1,[21,720*1440]).T    
+    view1 = np.reshape(view,[3750*3750,1])
+    
+    pres = np.array([1000,975,950,925,900,850,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100])
+    ta=temp_prof/(1000/pres)**0.286
+    ei=spfh_prof*temp_prof/(.378*spfh_prof+.622)
+    anv=873.6
+    epsln=0.98
+    emis = np.empty([720*1440,21])
+    tau = np.empty([720*1440,21])
+    for i in range(20):
+        emis[:,i]=0.5*(planck(ta[:,i],anv)+planck(ta[:,i+1],anv))
+        tau[:,i]=(pres[i]-pres[i+1])*(dtaudp(anv,ta[:,i],emis[:,i],pres[i])+
+           dtaudp(anv,ta[:,i+1],emis[:,i+1],pres[i+1]) +4.*
+                  dtaudp(anv,(ta[:,i]+ta[:,i+1])/2.,(emis[:,i]+emis[:,i+1])/2.,
+                                    (pres[i]-pres[i+1])/2.))/6
+    
+    optd = np.sum(tau,axis=1)
+    cs=np.cos(np.deg2rad(view1)/np.deg2rad(57.29))
+    optd = np.array(optd,dtype=np.float32)
+    optd = np.reshape(optd,[720,1440])
+    optd = optd[icormat,jcormat]
+    a = -optd/cs
+    trans=np.exp(a)
+        
+    #=========angular invariant sky================
+    cs=np.cos(np.deg2rad(0.)/np.deg2rad(57.29))
+    a = -tau[:,0]/cs
+    sky1 = np.empty([720*1440,21])
+    sky1[:,1]=emis[:,0]*(1.0-np.exp(a))
+    
+    for i in range(20):
+        sky1[:,i]=emis[:,i-1]+(sky1[:,i-1]-emis[:,i-1])*np.exp(-tau[:,i-1]/cs)
+    
+    sky1 = np.reshape(sky1,[21,720,1440])
+    sky1 = np.squeeze(sky1[:,icormat,jcormat]).T
+    sky1 = np.reshape(sky1,[3750*3750,21])
+    #====final results=============================
+    grndrad1=(planck(trad[:,0],anv)-sky1[:,20]*(1.0+trans[:,0]*(1.0-epsln)))
+    
+    trad11=invplanck(grndrad1/epsln,anv)
+    trad11 = np.reshape(trad11,[3750,3750])
+    trad11[trad11<0]=-9999.
+    
+    outfn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.dat" % (date,tile))
+    trad11 = np.array(trad11, dtype=np.float32)
+    trad11.tofile(outfn)
+    
+    #======Night===============================================================
+    #==========================================================================
+    out_bt_fn = glob.glob(os.path.join(tile_path,"merged_night_bt_%s_T%03d*.dat" % (date,tile)))[0]
+    out_view_fn1 = glob.glob(os.path.join(tile_path,"merged_night_view_%s_T%03d*.dat" % (date,tile)))[0]
+  
+    #=======run atmospheric correction=========================================
+#    shutil.copyfile(out_bt_fn,trad_fn)
+    bt = np.fromfile(out_bt_fn, dtype=np.float32)
+    trad = bt.reshape([3750,3750])
+    trad = np.reshape(trad,[3750*3750,1])
+
+
+#=======run atmospheric correction=========================================
+    
+    view = np.fromfile(out_view_fn1, dtype=np.float32)
+    view = view.reshape([3750,3750])
+    
+    spfh_prof = np.fromfile(spfh_prof_fn, dtype=np.float32)
+    spfh_prof = spfh_prof.reshape([21,720,1440])
+    
+    temp_prof = np.fromfile(temp_prof_fn, dtype=np.float32)
+    temp_prof = temp_prof.reshape([21,720,1440])
+    
+    temp_prof1 = np.empty([21,720,1440])
+    for i in range(21):
+        temp_prof1[i,:,:] = np.flipud(np.squeeze(temp_prof[i,:,:]))
+        
+    spfh_prof1 = np.empty([21,720,1440])
+    for i in range(21):
+        spfh_prof1[i,:,:] = np.flipud(np.squeeze(spfh_prof[i,:,:]))
+    
+    sfc_temp = np.fromfile(sfc_temp_fn, dtype=np.float32)
+    sfc_temp = np.flipud(sfc_temp.reshape([720,1440]))   
+    sfc_pres = np.fromfile(sfc_pres_fn, dtype=np.float32)
+    sfc_pres = np.flipud(sfc_pres.reshape([720,1440]))    
+    sfc_spfh = np.fromfile(sfc_spfh_fn, dtype=np.float32)
+    sfc_spfh = np.flipud(sfc_spfh.reshape([720,1440]))
+    sfc_temp = np.reshape(sfc_temp,[720*1440,1])
+    sfc_pres = np.reshape(sfc_pres,[720*1440,1])
+    sfc_spfh = np.reshape(sfc_spfh,[720*1440,1])    
+    temp_prof = np.reshape(temp_prof1,[21,720*1440]).T
+    spfh_prof = np.reshape(spfh_prof1,[21,720*1440]).T    
+    view1 = np.reshape(view,[3750*3750,1])
+    
+    pres = np.array([1000,975,950,925,900,850,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100])
+    ta=temp_prof/(1000/pres)**0.286
+    ei=spfh_prof*temp_prof/(.378*spfh_prof+.622)
+    anv=873.6
+    epsln=0.98
+    emis = np.empty([720*1440,21])
+    tau = np.empty([720*1440,21])
+    for i in range(20):
+        emis[:,i]=0.5*(planck(ta[:,i],anv)+planck(ta[:,i+1],anv))
+        tau[:,i]=(pres[i]-pres[i+1])*(dtaudp(anv,ta[:,i],emis[:,i],pres[i])+
+           dtaudp(anv,ta[:,i+1],emis[:,i+1],pres[i+1]) +4.*
+                  dtaudp(anv,(ta[:,i]+ta[:,i+1])/2.,(emis[:,i]+emis[:,i+1])/2.,
+                                    (pres[i]-pres[i+1])/2.))/6
+    
+    optd = np.sum(tau,axis=1)
+    cs=np.cos(np.deg2rad(view1)/np.deg2rad(57.29))
+    optd = np.array(optd,dtype=np.float32)
+    optd = np.reshape(optd,[720,1440])
+    optd = optd[icormat,jcormat]
+    a = -optd/cs
+    trans=np.exp(a)
+        
+    #=========angular invariant sky================
+    cs=np.cos(np.deg2rad(0.)/np.deg2rad(57.29))
+    a = -tau[:,0]/cs
+    sky1 = np.empty([720*1440,21])
+    sky1[:,1]=emis[:,0]*(1.0-np.exp(a))
+    
+    for i in range(20):
+        sky1[:,i]=emis[:,i-1]+(sky1[:,i-1]-emis[:,i-1])*np.exp(-tau[:,i-1]/cs)
+    
+    sky1 = np.reshape(sky1,[21,720,1440])
+    sky1 = np.squeeze(sky1[:,icormat,jcormat]).T
+    sky1 = np.reshape(sky1,[3750*3750,21])
+    #====final results=============================
+    grndrad1=(planck(trad[:,0],anv)-sky1[:,20]*(1.0+trans[:,0]*(1.0-epsln)))
+    
+    trad11=invplanck(grndrad1/epsln,anv)
+    trad11 = np.reshape(trad11,[3750,3750])
+    trad11[trad11<0]=-9999.
+    
+    outfn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.dat" % (date,tile))
+    trad11 = np.array(trad11, dtype=np.float32)
+    trad11.tofile(outfn)
+
+    convertBin2tif(outfn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+    
+    return trad11
 
 def pred_dtrad(tile,year,doy):
     LLlat,LLlon = tile2latlon(tile)
@@ -1261,9 +2015,9 @@ def pred_dtrad(tile,year,doy):
     merge = 'merge'
     calc_predicted_trad2= 'calc_predicted_trad2'
     #====create processing folder========
-    dtrad_path = os.path.join(processing_path,'DTRAD_PREDICTION')
-    if not os.path.exists(dtrad_path):
-        os.makedirs(dtrad_path) 
+#    dtrad_path = os.path.join(processing_path,'DTRAD_PREDICTION')
+#    if not os.path.exists(dtrad_path):
+#        os.makedirs(dtrad_path) 
     
     date = "%d%03d" % (year,doy)
             
@@ -1283,14 +2037,12 @@ def pred_dtrad(tile,year,doy):
     nightlst_fn = os.path.join(base,'TILES','T%03d' % tile,'FINAL_NIGHT_LST_%s_T%03d.dat' % (date,tile))
     lai_fn = os.path.join(base,'STATIC','LAI','MLAI_%s_T%03d.dat' % (laiddd,tile))
     dtime_fn = os.path.join(base,'STATIC','DTIME','DTIME_2014%03d_T%03d.dat' % (risedoy,tile))
-    lst_day = np.fromfile(daylst_fn, dtype=np.float32)
-    lst_day= np.flipud(lst_day.reshape([3750,3750]))
-    lst_day.tofile(daylst_fn)
+#    lst_day = np.fromfile(daylst_fn, dtype=np.float32)
+#    lst_day= np.flipud(lst_day.reshape([3750,3750]))
+#    lst_day.tofile(daylst_fn)
     convertBin2tif(daylst_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
 #    lst_night = np.fromfile(nightlst_fn, dtype=np.float32)
 #    lst_night= np.flipud(lst_night.reshape([3750,3750]))
-#    lst_night= lst_night.reshape([3750,3750])
-#    plt.imshow(lst_night,vmin=280,vmax=310)
 #    lst_night.tofile(nightlst_fn)
     convertBin2tif(nightlst_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
 #    precip = np.fromfile(precip_fn, dtype=np.float32)
@@ -1350,35 +2102,188 @@ def pred_dtrad(tile,year,doy):
                          "%s" % fmax_fn, "%s" % terrain_fn, "%s" % daylst_fn,
                          "%s" % nightlst_fn, "%s" % lai_fn, "%s" % dtime_fn,
                          "%s" % fn6])
-    dtrad_path = os.path.join(tile_path,
+    dtrad_fn = os.path.join(tile_path,
                             "FINAL_DTRAD_%s_T%03d.dat" % ( date, tile))
     subprocess.check_output(["%s" % merge,"%s" % fn1, "%s" % fn2,"%s" % fn3,
-                             "%s" % fn4, "%s" % fn5, "%s" % fn6, "%s" % dtrad_path])
-    lst_path = os.path.join(tile_path,
+                             "%s" % fn4, "%s" % fn5, "%s" % fn6, "%s" % dtrad_fn])
+    lst_fn = os.path.join(tile_path,
                             "FINAL_DAY_LST_TIME2_%s_T%03d.dat" % ( date, tile))
     subprocess.check_output(["%s" % calc_predicted_trad2,"%s" % nightlst_fn, 
-                         "%s" % daylst_fn, "%s" % lai_fn, "%s" % lst_path ])
-
-#    convertBin2tif(dtrad_path,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
-#    convertBin2tif(lst_path,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+                         "%s" % daylst_fn, "%s" % lai_fn, "%s" % lst_fn ])
     #================+TESTING==================================================
     
     testing_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
     if not os.path.exists(testing_path):
         os.makedirs(testing_path)
     testing_fn = os.path.join(testing_path,'FINAL_DTRAD_%s_T%03d.dat' % (date,tile))
-    
-    shutil.copyfile(dtrad_path,testing_fn)
+#    dtime = np.fromfile(dtrad_fn, dtype=np.float32)
+#    dtime= np.flipud(dtime.reshape([3750,3750]))
+#    dtime.tofile(dtrad_fn)
+    shutil.copyfile(dtrad_fn,testing_fn)
     convertBin2tif(testing_fn,inUL,ALEXIshape,ALEXIres,np.float32,gdal.GDT_Float32)
-    
+#    dtime = np.fromfile(lst_fn, dtype=np.float32)
+#    dtime= np.flipud(dtime.reshape([3750,3750]))
+#    dtime.tofile(lst_fn)
     testing_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
     if not os.path.exists(testing_path):
         os.makedirs(testing_path)
     testing_fn = os.path.join(testing_path,'FINAL_DAY_LST_TIME2_%s_T%03d.dat' % (date,tile))
     
-    shutil.copyfile(lst_path,testing_fn)
+    shutil.copyfile(lst_fn,testing_fn)
     convertBin2tif(testing_fn,inUL,ALEXIshape,ALEXIres,np.float32,gdal.GDT_Float32)
 
+def buildRNETtrees(year,doy):
+    dtimedates = np.array(range(1,366,7))
+    r7day = dtimedates[dtimedates>=doy][0]
+    riseddd="%d%03d" %(year,r7day)
+    halfdeg_sizeArr = 900*1800
+
+    #========process insol====================================================
+    srcfn = os.path.join(static_path,'INSOL','deg05','insol55_2011%03d.tif' % doy)
+    g = gdal.Open(srcfn,GA_ReadOnly)
+    insol= g.ReadAsArray()
+    insol = np.reshape(insol,[halfdeg_sizeArr])
+
+    #======process RNET========================================================
+    srcfn = os.path.join(static_path,'5KM','RNET','RNET%s.dat' % riseddd)
+    rnet = np.fromfile(srcfn, dtype=np.float32)
+    rnet = np.flipud(rnet.reshape([3000,7200]))
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    tif_fn = srcfn[:-4]+'.tif'
+    if not os.path.exists(tif_fn):
+        writeArray2Tiff(rnet,[0.05,0.05],[-180.,90.],inProjection,tif_fn,gdal.GDT_Float32)
+    outfn = tif_fn[:-4]+'subset.tif'
+    out = subprocess.check_output('gdal_translate -of GTiff -projwin -30 45 60 0 -tr 0.05 0.05 %s %s' % (tif_fn,outfn), shell=True)
+    g = gdal.Open(outfn,GA_ReadOnly)
+    rnet= g.ReadAsArray()
+    rnet = np.reshape(rnet,[halfdeg_sizeArr])
+    #======process albedo======================================================
+    srcfn = os.path.join(static_path,'ALBEDO','ALBEDO.tif')
+    g = gdal.Open(srcfn,GA_ReadOnly)
+    albedo = g.ReadAsArray()
+    albedo = np.reshape(albedo,[halfdeg_sizeArr])
+    
+    #=====process LST2=========================================================
+    srcPath = os.path.join(tile_base_path,'LST2','%03d' % doy)
+    searchPath = os.path.join(srcPath,'FINAL_DAY_LST_TIME2*.tif')
+    outfn = os.path.join(srcPath,'LST2.vrt')
+    outfn05 = outfn[:-4]+'05.tif'
+    subprocess.check_output('gdalbuildvrt %s %s' % (outfn, searchPath), shell=True)
+    out = subprocess.check_output('gdal_translate -of GTiff -tr 0.05 0.05 %s %s' % (outfn,outfn05), shell=True)
+    g = gdal.Open(outfn05,GA_ReadOnly)
+    lst2 = g.ReadAsArray()
+    lst2 = np.reshape(lst2,[halfdeg_sizeArr])
+    #====process LWDN==========================================================
+    time = get_rise55(year,doy,86)
+    grab_time = getGrabTime(int(time)*100)
+    hr,forecastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+    cfsr_date = "%d%03d" % (year,cfsr_doy)
+    if (grab_time)==2400:
+        grab_time = 0000
+    srcfn = os.path.join(static_path,'CFSR','%d' % year,'%03d' % cfsr_doy,'sfc_lwdn_%s_%02d00.dat' % (cfsr_date,grab_time/100))
+    lwdn25 = np.fromfile(srcfn, dtype=np.float32)
+    lwdn25 = np.flipud(lwdn25.reshape([720, 1440]))
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    tif_fn = srcfn[:-4]+'.tif'
+    if not os.path.exists(tif_fn):
+        writeArray2Tiff(lwdn25,[0.25,0.25],[-180.,90.],inProjection,tif_fn,gdal.GDT_Float32)
+    outfn = tif_fn[:-4]+'05.tif'
+#    outfn = os.path.join(outPath,tif_fn.split(os.sep)[-1])
+    out = subprocess.check_output('gdal_translate -of GTiff -projwin -30 45 60 0 -tr 0.05 0.05 %s %s' % (tif_fn,outfn), shell=True)
+    g = gdal.Open(outfn,GA_ReadOnly)
+    lwdn = g.ReadAsArray()
+    lwdn = np.reshape(lwdn,[halfdeg_sizeArr])
+    
+    #==========create fstem.data for cubist====================================
+    outDict = {'rnet': rnet, 'albedo':albedo, 'insol':insol, 'lwdn': lwdn, 'lst2':lst2}
+    inDF = pd.DataFrame.from_dict(outDict)
+    outDF = inDF.loc[(inDF["rnet"] > 0.0) & (inDF["albedo"] > 0.0) & 
+                (inDF["insol"] > 0.0) & (inDF["lwdn"] > 0.0) &
+                (inDF["lst2"] > 0.0), ["rnet","albedo","insol","lwdn","lst2"]]
+    calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl')
+    if not os.path.exists(calc_rnet_tile_ctl):
+        os.makedirs(calc_rnet_tile_ctl) 
+    file_data = os.path.join(calc_rnet_tile_ctl,'rnet.data')
+    outDF.to_csv(file_data , header=True, index=False,columns=["rnet",
+                                        "albedo","insol","lwdn","lst2"])
+    file_names = os.path.join(calc_rnet_tile_ctl,'rnet.names')
+    get_tiles_fstem_names(file_names)
+    
+    #====run cubist============================================================
+#    print("running cubist...")
+    cubist_name = os.path.join(calc_rnet_tile_ctl,'rnet')
+    rnet_cub_out = subprocess.check_output("cubist -f %s -u -a -r 20" % cubist_name, shell=True)
+    return rnet_cub_out
+
+def getRNETfromTrees(tile,year,doy,rnet_cub_out):
+    LLlat,LLlon = tile2latlon(tile)
+    URlat = LLlat+15.
+    URlon = LLlon+15.
+    inUL = [LLlon,URlat]
+    ALEXI_shape = [3750,3750]
+    ALEXI_res = [0.004,0.004]
+    date = '%d%03d' % (year,doy)
+    tile_path = os.path.join(tile_base_path,"T%03d" % tile)
+    #====open INSOL =============================================
+    srcfn = os.path.join(static_path,'INSOL','deg004','insol55_2011%03d.tif' % doy)
+    outfn = srcfn[:-4]+'_T%03d.tif' % tile
+    out = subprocess.check_output('gdalwarp -overwrite -of GTiff -te %f %f %f %f -tr 0.004 0.004 %s %s' % (LLlon,LLlat,URlon,URlat,srcfn,outfn), shell=True)
+    g = gdal.Open(outfn,GA_ReadOnly)
+    insol_viirs= g.ReadAsArray()
+    insol_viirs = np.reshape(insol_viirs,[3750*3750])
+    
+    #======process albedo======================================================
+    albedo_fn = os.path.join(static_path,'ALBEDO','ALBEDO_T%03d.dat' % tile)
+    albedo = np.fromfile(albedo_fn, dtype=np.float32)
+    albedo = np.reshape(albedo,[3750*3750])
+    
+    #=====process LST2=========================================================
+#    lst_fn = os.path.join(rnet_tile_path,'LST2_%03d_%s.dat' % (tile,date))
+    lst_fn = os.path.join(tile_path,
+                            "FINAL_DAY_LST_TIME2_%s_T%03d.dat" % ( date, tile))
+    lst = np.fromfile(lst_fn, dtype=np.float32)
+    lst2 = np.reshape(lst,[3750*3750])
+    
+    #====process LWDN==========================================================
+    time = get_rise55(year,doy,tile)
+    grab_time = getGrabTime(int(time)*100)
+    hr,forecastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+    cfsr_date = "%d%03d" % (year,cfsr_doy)
+    if (grab_time)==2400:
+        grab_time = 0000
+    srcfn = os.path.join(static_path,'CFSR','%d' % year,'%03d' % cfsr_doy,'sfc_lwdn_%s_%02d00.dat' % (cfsr_date,grab_time/100))
+    lwdn25 = np.fromfile(srcfn, dtype=np.float32)
+    lwdn25 = np.flipud(lwdn25.reshape([720, 1440]))
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    tif_fn = srcfn[:-4]+'.tif'
+    if not os.path.exists(tif_fn):
+        writeArray2Tiff(lwdn25,[0.25,0.25],[-180.,90.],inProjection,tif_fn,gdal.GDT_Float32)
+    outfn = tif_fn[:-4]+'_T%03d.tif' % tile
+    out = subprocess.check_output('gdal_translate -of GTiff -projwin %f %f %f %f -tr 0.004 0.004 %s %s' % (LLlon,URlat,URlon,LLlat,tif_fn,outfn), shell=True)
+    g = gdal.Open(outfn,GA_ReadOnly)
+    lwdn = g.ReadAsArray()
+    lwdn_viirs = np.reshape(lwdn,[3750*3750])
+    #=======get the final_rnet=================================================
+    cubDict = {'albedo':albedo, 'insol':insol_viirs, 'lwdn': lwdn_viirs, 'lst2':lst2}
+    cubDF = pd.DataFrame.from_dict(cubDict)
+    rnet_out = readCubistOut(rnet_cub_out,cubDF)
+    rnet_out = np.reshape(rnet_out, [3750,3750])
+    rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
+    if not os.path.exists(rnet_tile):
+        os.makedirs(rnet_tile)
+    finalrnet_fn = os.path.join(rnet_tile,'FINAL_RNET_%s_T%03d.dat' % (date,tile))
+    rnet_out = np.array(rnet_out,dtype='Float32')
+    rnet_out.tofile(finalrnet_fn)
+    convertBin2tif(finalrnet_fn,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
+    
+    #======TESTING=============================================================
+    testing_path = os.path.join(tile_base_path,'RNET','%03d' % doy)
+    if not os.path.exists(testing_path):
+        os.makedirs(testing_path)
+    testing_fn = os.path.join(testing_path,'FINAL_RNET_%s_T%03d.dat' % (date,tile))
+    shutil.copyfile(finalrnet_fn,testing_fn)
+    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)  
+    
 def processTiles(tile,year,doy):
     LLlat,LLlon = tile2latlon(tile)
     URlat = LLlat+15.
@@ -1393,11 +2298,8 @@ def processTiles(tile,year,doy):
     writeCTL(tile,year,doy)
     
     #========process insol====================================================
-    tiles_path = os.path.join(calc_rnet_path,'tiles')
-    if not os.path.exists(tiles_path):
-        os.makedirs(tiles_path) 
         
-    insol_fn = os.path.join(tiles_path,'INSOL_%03d_%s.dat' % (tile,date))
+    insol_fn = os.path.join(rnet_tile_path,'INSOL_%03d_%s.dat' % (tile,date))
     write_agg_insol(insol_fn,date_tile_str)
     out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_insol.gs %3.2f %3.2f  %3.2f  %3.2f'" 
                                   % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
@@ -1420,7 +2322,7 @@ def processTiles(tile,year,doy):
     convertBin2tif(insol_viirs_fn,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
     
     #======process RNET=======================================================
-    rnet_fn = os.path.join(tiles_path,'RNET_%03d_%s.dat' % (tile,date))
+    rnet_fn = os.path.join(rnet_tile_path,'RNET_%03d_%s.dat' % (tile,date))
     write_agg_rnet(rnet_fn,date_tile_str)
     
     out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_rnet.gs %3.2f %3.2f  %3.2f  %3.2f'" 
@@ -1430,7 +2332,7 @@ def processTiles(tile,year,doy):
     rnet = np.reshape(rnet,[halfdeg_sizeArr])  
     
     #======process albedo======================================================
-    albedo_fn = os.path.join(tiles_path,'ALBEDO_%03d_%s.dat' % (tile,date))
+    albedo_fn = os.path.join(rnet_tile_path,'ALBEDO_%03d_%s.dat' % (tile,date))
     write_agg_albedo(albedo_fn,date_tile_str)
     
     out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_albedo.gs %3.2f %3.2f  %3.2f  %3.2f'" 
@@ -1440,7 +2342,7 @@ def processTiles(tile,year,doy):
     albedo = np.reshape(albedo,[halfdeg_sizeArr])
     
     #=====process LST2=========================================================
-    lst_fn = os.path.join(tiles_path,'LST2_%03d_%s.dat' % (tile,date))
+    lst_fn = os.path.join(rnet_tile_path,'LST2_%03d_%s.dat' % (tile,date))
     write_agg_lst2(lst_fn,date_tile_str)
     
     out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_lst2.gs %3.2f %3.2f  %3.2f  %3.2f'" 
@@ -1448,7 +2350,7 @@ def processTiles(tile,year,doy):
     lst = np.fromfile(lst_fn, dtype=np.float32)
 
     #====process LWDN==========================================================
-    lwdn_fn = os.path.join(tiles_path,'LWDN_%03d_%s.dat' % (tile,date))
+    lwdn_fn = os.path.join(rnet_tile_path,'LWDN_%03d_%s.dat' % (tile,date))
     write_agg_lwdn(lwdn_fn,date_tile_str)
     out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_lwdn.gs %3.2f %3.2f  %3.2f  %3.2f'" 
                                   % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
@@ -1486,15 +2388,15 @@ def processTiles(tile,year,doy):
     #====run cubist============================================================
 #    print("running cubist...")
     cubist_name = os.path.join(calc_rnet_tile_ctl,'rnet')
-    out = subprocess.check_output("cubist -f %s -u -a -r 20" % cubist_name, shell=True)
-    print(out)
+    rnet_cub_out = subprocess.check_output("cubist -f %s -u -a -r 20" % cubist_name, shell=True)
+
     #=======get the final_rnet=================================================
     lst2 = np.fromfile('./%s_lst2.dat' % date_tile_str, dtype=np.float32)
     albedo = np.fromfile('./%s_albedo.dat' % date_tile_str, dtype=np.float32)
     convertBin2tif('./%s_albedo.dat' % date_tile_str,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
     cubDict = {'albedo':albedo, 'insol':insol_viirs, 'lwdn': lwdn_viirs, 'lst2':lst2}
     cubDF = pd.DataFrame.from_dict(cubDict)
-    rnet_out = readCubistOut(out,cubDF)
+    rnet_out = readCubistOut(rnet_cub_out,cubDF)
     rnet_out = np.reshape(rnet_out, [3750,3750])
     rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
     if not os.path.exists(rnet_tile):
@@ -1634,12 +2536,6 @@ def getDailyET(tile,year,doy):
     ET_24[ET_24<0.01]=0.01
     ET_24 = np.array(ET_24,dtype='Float32')
     
-#    out_ET_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_EDAY_%s_T%03d.dat' % (date,tile))
-#    ET_24.tofile(out_ET_fn)
-#    convertBin2tif(out_ET_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
-#    ET_24.tofile(out_ET_fn)
-#    convertBin2tif(out_ET_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
-    
     testing_path = os.path.join(tile_base_path,'ET','%03d' % doy)
     if not os.path.exists(testing_path):
         os.makedirs(testing_path)
@@ -1647,6 +2543,12 @@ def getDailyET(tile,year,doy):
     
     ET_24.tofile(testing_fn)
     convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
+#    searchPath = os.path.join(testing_path,'*.tif')
+#    outfn = os.path.join(testing_path,'ET_%03d.vrt' % doy)
+#    out_tif_fn = os.path.join(testing_path,'ET_%03d.tif' % doy)
+#    subprocess.check_output('gdalbuildvrt %s %s' % (outfn, searchPath), shell=True)
+#    out = subprocess.check_output('gdal_translate -of GTiff %s %s' % (outfn,out_tif_fn), shell=True)
+
     
 def runSteps(par,trees,tile=None,year=None,doy=None):
     if year==None:
@@ -1658,42 +2560,50 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
 
 
     if par==0:
-        print("building VIIRS coordinates LUT--------------->")
-        getIJcoordsPython(tile)
+#        print("building VIIRS coordinates LUT--------------->")
+#        getIJcoordsPython(tile)
         print("gridding VIIRS data-------------------------->")
-        res = gridMergePython(tile,year,doy)
-        if res > 0:
-            print("no viirs data")
-        else:
-            print("running I5 atmosperic correction------------->")
-        #    startatmos = timer.time()
-            atmosCorrection(tile,year,doy)
-        #    end = timer.time()
-        #    print("atmoscorr time: %f" % (end - startatmos))
-            print("estimating dtrad and LST2-------------------->")
-            pred_dtrad(tile,year,doy)
-            print("estimating RNET ----------------------------->")
-            processTiles(tile,year,doy)
-            print("estimating FSUN------------------------------>")
-            useTrees(tile,year,doy,trees)
-            print("making ET------------------------------------>")
-            getDailyET(tile,year,doy)
-            print("============FINISHED!=========================")
+#        res = gridMergePython(tile,year,doy)
+        gridMergePythonEWA(tile,year,doy)
+#        if res > 0:
+#            print("no viirs data")
+#        else:
+        print("running I5 atmosperic correction------------->")
+    #    startatmos = timer.time()
+#            atmosCorrection(tile,year,doy)
+        atmosCorrectPython(tile,year,doy)
+    #    end = timer.time()
+    #    print("atmoscorr time: %f" % (end - startatmos))
+        print("estimating dtrad and LST2-------------------->")
+        pred_dtrad(tile,year,doy)
+        print("estimating RNET ----------------------------->")
+        processTiles(tile,year,doy)
+        print("estimating FSUN------------------------------>")
+        useTrees(tile,year,doy,trees)
+        print("making ET------------------------------------>")
+        getDailyET(tile,year,doy)
+        print("============FINISHED!=========================")
     else:
         tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
-        print("building VIIRS coordinates LUT--------------->")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(getIJcoordsPython)(tile) for tile in tiles)
+#        print("building VIIRS coordinates LUT--------------->")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(getIJcoordsPython)(tile) for tile in tiles)
         print("gridding VIIRS data-------------------------->")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
 #        print("gridding VIIRS data-------------------------->")
 #        for tile in tiles:
 #            res = gridMergePython(tile,year,doy)
         print("running I5 atmosperic correction------------->")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrection)(tile,year,doy) for tile in tiles)
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrection)(tile,year,doy) for tile in tiles)
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
         print("estimating dtrad and LST2-------------------->")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(pred_dtrad)(tile,year,doy) for tile in tiles)
+        print("build RNET trees----------------------------->")
+        tree = buildRNETtrees(year,doy)
         print("estimating RNET ----------------------------->")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(processTiles)(tile,year,doy) for tile in tiles)
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(processTiles)(tile,year,doy) for tile in tiles)
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(getRNETfromTrees)(tile,year,doy,tree) for tile in tiles)
+#        getRNETfromTrees(tile,year,doy,rnet_cub_out)
         print("estimating FSUN------------------------------>")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(useTrees)(tile,year,doy,trees) for tile in tiles)
         print("making ET------------------------------------>")
@@ -1701,21 +2611,18 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         print("============FINISHED!=========================")
 
 year = 2015
-doy = 221
+#doy = 221
+days = range(225,228)
 #tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
 ##tiles = [64,87,88]
 ##tiles = [61]
 #start = timer.time() 
-print("building regression trees from 5KM data---------->")
-trees = processTrees(year,doy)
-##for tile in tiles:
-##    print("========processing T%03d======================" % tile)
-##    runSteps(tile,trees,year,doy) 
-#r = Parallel(n_jobs=-1, verbose=5)(delayed(runSteps)(0,trees,tile,year,doy) for tile in tiles)
-#end = timer.time()
-#print(end - start)
-
 start = timer.time() 
-runSteps(0,trees,63,year,doy)
+for doy in days:
+    print("processing day:%d of year:%d" % (doy,year))
+    print("building regression trees from 5KM data---------->")
+    trees = processTrees(year,doy)
+    runSteps(1,trees,None,year,doy)
+    
 end = timer.time()
-print(end - start)
+print("program duration: %f minutes" % ((end - start)/60.))

@@ -246,9 +246,10 @@ def getInsolation(earthLoginUser,earthLoginPass,tile,year=None,doy=None):
         '-ts', '%f' % nrow, '%f' % ncol,'-multi','-of','GTiff','%s' % outfile, '%s' % outFN]
         warp(optionList)
 
-
-def getCFSRInsolation(tile,year=None,doy=None):
-     
+def downloadCFSRpython(year=None,doy=None):
+    dstpath =  os.path.join(CFSR_path,"%d" % year,"%03d" % doy)
+    if not os.path.exists(dstpath):
+        os.makedirs(dstpath)    
     if year==None:
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         year = dd.year
@@ -266,8 +267,31 @@ def getCFSRInsolation(tile,year=None,doy=None):
                                 "%d%02d%02d" % (year,dd.month,dd.day))
         else:
             url = realtimeURL+'cdas.%d%02d%02d/' % (year,dd.month,dd.day)
-#        url = os.path.join(ncdcURL,"%s" % year,"%d%02d" % (year,dd.month),
-#                                "%d%02d%02d" % (year,dd.month,dd.day))
+    for i in range(0,8):
+        hrs = [0,0,6,6,12,12,18,18]
+        hr = hrs[i]
+        forcastHRs = [0,3,0,3,0,3,0,3]
+        forcastHR = forcastHRs[i]
+        hr1file = 'cdas1.t%02dz.sfluxgrbf%02d.grib2' % (hr,forcastHR)
+        print url
+        pydapURL = os.path.join(url,hr1file)
+        outFN = os.path.join(dstpath,hr1file)
+        if not os.path.exists(outFN):
+            print "downloading file...%s" % hr1file
+            getHTTPdata(pydapURL,outFN)
+
+def getCFSRInsolation(tile,year=None,doy=None):
+     
+    if year==None:
+        dd = datetime.date.today()+datetime.timedelta(days=-1)
+        year = dd.year
+        
+    if doy==None:
+        doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+        dd = datetime.date.today()+datetime.timedelta(days=-1)
+    else:
+        dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
+
         
     dstpath =  os.path.join(CFSR_path,"%d" % year,"%03d" % doy)
     if not os.path.exists(dstpath):
@@ -285,6 +309,7 @@ def getCFSRInsolation(tile,year=None,doy=None):
 
     date = "%d%03d" %(year,doy)
     print "date:%s" % date
+    print("tile:T%03d" % tile)
     print "============================================================"
     outData = []
     for i in range(0,8):
@@ -293,21 +318,21 @@ def getCFSRInsolation(tile,year=None,doy=None):
         forcastHRs = [0,3,0,3,0,3,0,3]
         forcastHR = forcastHRs[i]
         hr1file = 'cdas1.t%02dz.sfluxgrbf%02d.grib2' % (hr,forcastHR)
-        print url
-        pydapURL = os.path.join(url,hr1file)
+#        print url
+#        pydapURL = os.path.join(url,hr1file)
         outFN = os.path.join(dstpath,hr1file)
         tile_path = os.path.join(dstpath,"T%03d" % tile)
         if not os.path.exists(tile_path): 
             os.makedirs(tile_path)
         cfsr_out = os.path.join(tile_path, "CFSR_INSOL_%d%03d_%02d00_00%d.tif" % (year,doy,hr,forcastHR))
         cfsr_outvrt = os.path.join(tile_path,"CFSR_INSOL_%d%03d_%02d00_00%d.vrt" % (year,doy,hr,forcastHR))
-        if not os.path.exists(outFN):
-            print "downloading file...%s" % hr1file
-            getHTTPdata(pydapURL,outFN)
+#        if not os.path.exists(outFN):
+#            print "downloading file...%s" % hr1file
+#            getHTTPdata(pydapURL,outFN)
             
             #------download file                
     
-        print "processing file...%s" % hr1file   
+#        print "processing file...%s" % hr1file   
         dataset = gdal.Open(outFN, gdal.GA_ReadOnly)
         ##=====find correct dataset from grib===============
         for bandNum  in range(90,100): # use this range because file is towrds the end
@@ -333,7 +358,6 @@ def getCFSRInsolation(tile,year=None,doy=None):
         os.makedirs(outDIR)
     outFN = os.path.join(outDIR, 'RS24_%s_T%03d.tif' % (date,tile))       
     aa = np.array(outData)
-    print aa.shape 
     rs24 = np.sum(aa,axis=0)
     rs24 = np.reshape(rs24,[nrow, ncol])
     outFormat = gdal.GDT_Float32
@@ -533,11 +557,15 @@ tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
 #            except: 
 #              pass
 #print "all done!!"
-getCFSRdata(2015,221) 
-#getCFSRInsolation(63)
-#r = Parallel(n_jobs=-1, verbose=5)(delayed(getCFSRInsolation)(tile) for tile in tiles)
-for tile in tiles:
-    getCFSRInsolation(tile,2015,221)
+year = 2015
+days = range(227,228)
+for doy in days:
+    getCFSRdata(year,doy) 
+    downloadCFSRpython(year,doy)
+    #getCFSRInsolation(63)
+    #r = Parallel(n_jobs=-1, verbose=5)(delayed(getCFSRInsolation)(tile) for tile in tiles)
+    for tile in tiles:
+        getCFSRInsolation(tile,year,doy)
 #end = timer.time()
 #print(end - start)
 #getInsolation('mschull','sushmaMITCH12',63)    
