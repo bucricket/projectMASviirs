@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import glob
 import h5py
-from pyresample import image,kd_tree, geometry
+from pyresample import kd_tree, geometry
 from pyresample import utils
 import numpy.ma as ma
 from osgeo import gdal,osr
@@ -23,6 +23,7 @@ from osgeo.gdalconst import GA_ReadOnly
 from joblib import Parallel, delayed
 import time as timer
 from pyresample.ewa import ll2cr, fornav
+import argparse
 import warnings
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 
@@ -204,7 +205,8 @@ def writeCTL(tile,year,doy):
     
     dtimedates = np.array(range(1,366,7))
     rday = dtimedates[dtimedates>=doy][0]
-    riseddd="%d%03d" %(year,rday)
+#    riseddd="%d%03d" %(year,rday)
+    riseddd="%d%03d" %(2015,rday) # FOR RT UNTIL I GET RT DATA FROM CHRIS
     data = './%s_insol.dat' % date_tile_str
     shutil.copyfile(srcfn,data)
     fn = os.path.join('./%s_insol.ctl'% date_tile_str)
@@ -611,7 +613,15 @@ def dtaudp(W,X,Y,Z):
 #==============================================================================
     
 
-def processTrees(year,doy):
+def processTrees(year=None,doy=None):
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    if year==None:
+        dd = datetime.date.today()+datetime.timedelta(days=-1)
+        year = dd.year 
+    if doy==None:
+        doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+    year = 2015 # TEMP FOR RT PROCESSING  
+        
     dtimedates = np.array(range(1,366,7))
     r7day = dtimedates[dtimedates>=doy][0]
     riseddd="%d%03d" %(year,r7day)
@@ -643,6 +653,7 @@ def processTrees(year,doy):
 #    shutil.copyfile(fsun_src_fn)
     fsun = np.fromfile(fsun_src_fn, dtype=np.float32)
     fsun = np.flipud(fsun.reshape([3000,7200]))
+    writeArray2Tiff(fsun,[0.05,0.05],[-180.,90],inProjection,fsun_src_fn[:-4]+'.tif',gdal.GDT_Float32)
     fsun_sub = fsun[901:1801,3201:4801]
 #    plt.imshow(fsun_sub[100:400,1000:1300],vmin=0, vmax=0.5)
     fsun  = np.reshape(fsun_sub,[fsun_sub.size])
@@ -886,7 +897,10 @@ def gridMergePythonEWA(tile,year,doy):
             # load cloud data==========
             f=h5py.File(cloudfile,'r')
             g=h5py.File(cloudgeofile,'r')
-            data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
+            if datet > datetime.datetime(2017,3,8,0,0,0):
+                data_array = f['/All_Data/VIIRS-CM-EDR_All/QF1_VIIRSCMEDR'][()]
+            else:
+                data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
             lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
             lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
             view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
@@ -905,7 +919,26 @@ def gridMergePythonEWA(tile,year,doy):
                 cloud = np.vstack((cloud,np.array(data_array,'float32')))
                 viewcloud = np.vstack((viewcloud,np.array(view_array,'float32')))
                 
-#            meta_dict = get_VIIRS_bounds(filename)
+            # load water mask===========
+            f=h5py.File(cloudfile,'r')
+            g=h5py.File(cloudgeofile,'r')
+            if datet > datetime.datetime(2017,3,8,0,0,0):
+                data_array = f['/All_Data/VIIRS-CM-EDR_All/QF2_VIIRSCMEDR'][()]
+            else:
+                data_array = f['/All_Data/VIIRS-CM-IP_All/QF2_VIIRSCMIP'][()]
+            lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
+            lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
+            view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
+            
+            start=filename.find('_t')
+            out_time=filename[start+2:start+6]
+            
+            if count ==1:
+                watermask=np.array(data_array,'float32')
+            else:
+                watermask = np.vstack((watermask,np.array(data_array,'float32')))
+                
+            #  load BT data============
             f=h5py.File(filename,'r')
             g=h5py.File(geofile,'r')
             data_array = f['/All_Data/VIIRS-I5-SDR_All/BrightnessTemperature'][()]
@@ -931,15 +964,27 @@ def gridMergePythonEWA(tile,year,doy):
         cloud = np.sum(b[:,4:6],axis=1)
         cloud = np.reshape(cloud,[cloudOrig.shape[0],cloudOrig.shape[1]])
         cloud = np.array(cloud, dtype='float32')
+        
+        #====get water mask from bits===========
+        
+        watermask=np.array(watermask,'uint8')
+        watermask = np.reshape(watermask,[watermask.size, 1])
+        b = np.unpackbits(watermask, axis=1)
+        watermask = np.sum(b[:,5:7],axis=1)
+        watermask = np.reshape(watermask,[cloudOrig.shape[0],cloudOrig.shape[1]])
+        watermask = np.array(watermask, dtype='float32')
+        
         mask = (cloudOrig==0.)
         cloud[mask]=np.nan
         viewcloud[mask]=np.nan
+        watermask[mask]=np.nan
         #=====check if data is in range========================================
         rangeIndex = ((latcloud<-90.) | (latcloud > 90.) | (loncloud < -180.) | (loncloud > 180.))
         latcloud[rangeIndex] = np.nan
         loncloud[rangeIndex] = np.nan
         cloud[rangeIndex] = np.nan
         viewcloud[rangeIndex] = np.nan
+        watermask[rangeIndex] = np.nan
         if np.nansum(cloud)==0: # check if there is any data
             continue
 
@@ -966,14 +1011,22 @@ def gridMergePythonEWA(tile,year,doy):
         except:
             continue
         
+        try:
+            num_valid_points, gridded_watermask = fornav(cols, rows, area_def, watermask, rows_per_scan=rows_per_scan)
+        except:
+            continue
+        
         gridded_cloud[gridded_cloudview>60.0]=np.nan
+        gridded_watermask[gridded_cloudview>60.0]=np.nan
         #stack data
         if orbitcount==1:
             cloud_stack = gridded_cloud
             cloudview_stack = gridded_cloudview
+            watermask_stack = gridded_watermask
         else:
             cloud_stack = np.dstack((cloud_stack,gridded_cloud))
             cloudview_stack = np.dstack((cloudview_stack,gridded_cloudview))
+            watermask_stack = np.dstack((watermask_stack,gridded_watermask))
             
         #==LST gridding===========================
         mask = (data>65527.)
@@ -1011,7 +1064,7 @@ def gridMergePythonEWA(tile,year,doy):
             continue
         
         lst = gridded_data*0.00351+150.0
-        lst[gridded_view>60.0]=np.nan
+        lst[gridded_view>60.0]=-9999.
         #stack data
         if orbitcount==1:
             lst_stack = lst
@@ -1032,6 +1085,18 @@ def gridMergePythonEWA(tile,year,doy):
     bb = np.reshape(cloud_stack,[dims[0]*dims[1],dims[2]])
     cloud = bb[indrow,indcol]
     cloud = np.reshape(cloud,[3750,3750])
+    #=========WATERMASK:doing angle clearing======================================
+    if watermask_stack.ndim == 2:  
+        dims = [watermask_stack.shape[0],watermask_stack.shape[0],1]
+    else:
+        dims = watermask_stack.shape     
+    aa = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
+    aa[np.isnan(aa)]=9999.
+    indcol = np.argmin(aa,axis=1)
+    indrow = range(0,len(indcol))
+    bb = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
+    watermask = bb[indrow,indcol]
+    watermask = np.reshape(watermask,[3750,3750])
     #=========BT:doing angle and cloud clearing================================     
     aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
     aa[np.isnan(aa)]=9999.
@@ -1043,7 +1108,8 @@ def gridMergePythonEWA(tile,year,doy):
     lst = np.array(lst,dtype='Float32')
 #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
     out_bt_fn = os.path.join(tile_path,"merged_day_bt_%s_T%03d_%s.dat" % (date,tile,out_time))
-    lst[cloud>1]=np.nan
+    lst[cloud>1]=-9999.
+    lst[(watermask==1) | (watermask==2)]=np.nan
     lst.tofile(out_bt_fn)
     convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32) 
     
@@ -1058,7 +1124,8 @@ def gridMergePythonEWA(tile,year,doy):
     view = np.array(view,dtype='Float32')
 #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
     out_view_fn = os.path.join(tile_path,"merged_day_view_%s_T%03d_%s.dat" % (date,tile,out_time))
-    view[cloud>1]=np.nan
+    view[cloud>1]=-9999.
+    view[(watermask==1) | (watermask==2)]=np.nan
     view.tofile(out_view_fn)
     convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
     
@@ -1096,7 +1163,10 @@ def gridMergePythonEWA(tile,year,doy):
             # load cloud data==========
             f=h5py.File(cloudfile,'r')
             g=h5py.File(cloudgeofile,'r')
-            data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
+            if datet > datetime.datetime(2017,3,8,0,0,0):
+                data_array = f['/All_Data/VIIRS-CM-EDR_All/QF1_VIIRSCMEDR'][()]
+            else:
+                data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
             lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
             lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
             view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
@@ -1115,7 +1185,26 @@ def gridMergePythonEWA(tile,year,doy):
                 cloud = np.vstack((cloud,np.array(data_array,'float32')))
                 viewcloud = np.vstack((viewcloud,np.array(view_array,'float32')))
                 
-#            meta_dict = get_VIIRS_bounds(filename)
+            # load water mask===========
+            f=h5py.File(cloudfile,'r')
+            g=h5py.File(cloudgeofile,'r')
+            if datet > datetime.datetime(2017,3,8,0,0,0):
+                data_array = f['/All_Data/VIIRS-CM-EDR_All/QF2_VIIRSCMEDR'][()]
+            else:
+                data_array = f['/All_Data/VIIRS-CM-IP_All/QF2_VIIRSCMIP'][()]
+            lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
+            lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
+            view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
+            
+            start=filename.find('_t')
+            out_time=filename[start+2:start+6]
+            
+            if count ==1:
+                watermask=np.array(data_array,'float32')
+            else:
+                watermask = np.vstack((watermask,np.array(data_array,'float32')))
+                
+            #  Load BT data=============
             f=h5py.File(filename,'r')
             g=h5py.File(geofile,'r')
             data_array = f['/All_Data/VIIRS-I5-SDR_All/BrightnessTemperature'][()]
@@ -1144,16 +1233,25 @@ def gridMergePythonEWA(tile,year,doy):
         mask = (cloudOrig==0.)
         cloud[mask]=np.nan
         viewcloud[mask]=np.nan
+        #====get water mask from bits===========
+        
+        watermask=np.array(watermask,'uint8')
+        watermask = np.reshape(watermask,[watermask.size, 1])
+        b = np.unpackbits(watermask, axis=1)
+        watermask = np.sum(b[:,5:7],axis=1)
+        watermask = np.reshape(watermask,[cloudOrig.shape[0],cloudOrig.shape[1]])
+        watermask = np.array(watermask, dtype='float32')
+        
         #=====check if data is in range========================================
         rangeIndex = ((latcloud<-90.) | (latcloud > 90.) | (loncloud < -180.) | (loncloud > 180.))
         latcloud[rangeIndex] = np.nan
         loncloud[rangeIndex] = np.nan
         cloud[rangeIndex] = np.nan
         viewcloud[rangeIndex] = np.nan
-        
+        watermask[rangeIndex] = np.nan
         if np.nansum(cloud)==0: # check if there is any data
             continue
-        
+
         projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
         area_id ='tile'
         proj_id = 'latlon'
@@ -1177,15 +1275,22 @@ def gridMergePythonEWA(tile,year,doy):
         except:
             continue
         
+        try:
+            num_valid_points, gridded_watermask = fornav(cols, rows, area_def, watermask, rows_per_scan=rows_per_scan)
+        except:
+            continue
         
         gridded_cloud[gridded_cloudview>60.0]=np.nan
+        gridded_watermask[gridded_cloudview>60.0]=np.nan
         #stack data
         if orbitcount==1:
             cloud_stack = gridded_cloud
             cloudview_stack = gridded_cloudview
+            watermask_stack = gridded_watermask
         else:
             cloud_stack = np.dstack((cloud_stack,gridded_cloud))
             cloudview_stack = np.dstack((cloudview_stack,gridded_cloudview))
+            watermask_stack = np.dstack((watermask_stack,gridded_watermask))
             
         #==LST gridding===========================
         mask = (data>65527.)
@@ -1245,6 +1350,18 @@ def gridMergePythonEWA(tile,year,doy):
     bb = np.reshape(cloud_stack,[dims[0]*dims[1],dims[2]])
     cloud = bb[indrow,indcol]
     cloud = np.reshape(cloud,[3750,3750])
+    #=========WATERMASK:doing angle clearing======================================
+    if watermask_stack.ndim == 2:  
+        dims = [watermask_stack.shape[0],watermask_stack.shape[0],1]
+    else:
+        dims = watermask_stack.shape     
+    aa = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
+    aa[np.isnan(aa)]=9999.
+    indcol = np.argmin(aa,axis=1)
+    indrow = range(0,len(indcol))
+    bb = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
+    watermask = bb[indrow,indcol]
+    watermask = np.reshape(watermask,[3750,3750])
     #=========BT:doing angle and cloud clearing================================     
     aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
     aa[np.isnan(aa)]=9999.
@@ -1257,6 +1374,7 @@ def gridMergePythonEWA(tile,year,doy):
 #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
     out_bt_fn = os.path.join(tile_path,"merged_night_bt_%s_T%03d_%s.dat" % (date,tile,out_time))
     lst[cloud>1]=-9999.
+    lst[(watermask==1) | (watermask==2)]=-9999.
     lst.tofile(out_bt_fn)
     convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
     
@@ -1272,6 +1390,7 @@ def gridMergePythonEWA(tile,year,doy):
 #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
     out_view_fn = os.path.join(tile_path,"merged_night_view_%s_T%03d_%s.dat" % (date,tile,out_time))
     view[cloud>1]=np.nan
+    view[(watermask==1) | (watermask==2)]=-9999.
     view.tofile(out_view_fn)
     convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
     
@@ -2035,7 +2154,8 @@ def pred_dtrad(tile,year,doy):
     terrain_fn = os.path.join(base,'STATIC','TERRAIN_SD','TERRAIN_T%03d.dat' % tile)
     daylst_fn = os.path.join(base,'TILES','T%03d' % tile,'FINAL_DAY_LST_%s_T%03d.dat' % (date,tile))
     nightlst_fn = os.path.join(base,'TILES','T%03d' % tile,'FINAL_NIGHT_LST_%s_T%03d.dat' % (date,tile))
-    lai_fn = os.path.join(base,'STATIC','LAI','MLAI_%s_T%03d.dat' % (laiddd,tile))
+#    lai_fn = os.path.join(base,'STATIC','LAI','MLAI_%s_T%03d.dat' % (laiddd,tile))
+    lai_fn = os.path.join(base,'STATIC','LAI','MLAI_2015%03d_T%03d.dat' % (rday,tile))
     dtime_fn = os.path.join(base,'STATIC','DTIME','DTIME_2014%03d_T%03d.dat' % (risedoy,tile))
 #    lst_day = np.fromfile(daylst_fn, dtype=np.float32)
 #    lst_day= np.flipud(lst_day.reshape([3750,3750]))
@@ -2145,7 +2265,8 @@ def buildRNETtrees(year,doy):
     insol = np.reshape(insol,[halfdeg_sizeArr])
 
     #======process RNET========================================================
-    srcfn = os.path.join(static_path,'5KM','RNET','RNET%s.dat' % riseddd)
+#    srcfn = os.path.join(static_path,'5KM','RNET','RNET%s.dat' % riseddd)
+    srcfn = os.path.join(static_path,'5KM','RNET','RNET2015%03d.dat' % r7day)
     rnet = np.fromfile(srcfn, dtype=np.float32)
     rnet = np.flipud(rnet.reshape([3000,7200]))
     inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
@@ -2434,42 +2555,43 @@ def useTrees(tile,year,doy,trees):
     dthr_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_DTRAD_%s_T%03d.dat' % (date,tile))
     trad2_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_DAY_LST_TIME2_%s_T%03d.dat' % (date,tile))
     rnet_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_RNET_%s_T%03d.dat' % (date,tile))
-    lai_fn = os.path.join(static_path,'LAI','MLAI_%s_T%03d.dat' % (laiddd,tile)) # only have 2015 so far
+#    lai_fn = os.path.join(static_path,'LAI','MLAI_%s_T%03d.dat' % (laiddd,tile)) # only have 2015 so far
+    lai_fn = os.path.join(static_path,'LAI','MLAI_2015%03d_T%03d.dat' % (r4day,tile)) # TEMPORARY FOR RT PROCESSING
     dthr_corr_fn = os.path.join(static_path,'DTHR_CORR','DTHR_CORR_2010%03d_T%03d.dat' % (r7day,tile))
     dtime_fn = os.path.join(static_path,'DTIME','DTIME_2014%03d_T%03d.dat' % (r7day,tile))
     fmax_fn = os.path.join(static_path,'FMAX','FMAX_T%03d.dat' % (tile))
     precip_fn = os.path.join(static_path,'PRECIP','PRECIP_T%03d.dat' % (tile))
     
     dthr = np.fromfile(dthr_fn, dtype=np.float32)
-#    dthr = np.flipud(dthr.reshape([3750,3750]))
+#    dthr = dthr.reshape([3750,3750])
 #    plt.imshow(dthr)
 #    dthr = np.reshape(dthr,[3750*3750])
     trad2 = np.fromfile(trad2_fn, dtype=np.float32)
-#    trad2 = np.flipud(trad2.reshape([3750,3750]))
+#    trad2 = trad2.reshape([3750,3750])
 #    plt.imshow(trad2)
 #    trad2 = np.reshape(trad2,[3750*3750])
     rnet = np.fromfile(rnet_fn, dtype=np.float32)
-#    rnet = np.flipud(rnet.reshape([3750,3750]))
+#    rnet = rnet.reshape([3750,3750])
 #    plt.imshow(rnet)
 #    rnet = np.reshape(rnet,[3750*3750])    
     lai = np.fromfile(lai_fn, dtype=np.float32)
-#    lai = np.flipud(lai.reshape([3750,3750]))
+#    lai = lai.reshape([3750,3750])
 #    plt.imshow(lai, vmin=0, vmax=2)
 #    lai = np.reshape(lai,[3750*3750])
     dthr_corr = np.fromfile(dthr_corr_fn, dtype=np.float32)
-#    dthr_corr = np.flipud(dthr_corr.reshape([3750,3750]))
+    dthr_corr = np.flipud(dthr_corr.reshape([3750,3750]))
 #    plt.imshow(dthr_corr, vmin=0,vmax=3)
-#    dthr_corr = np.reshape(dthr_corr,[3750*3750])    
+    dthr_corr = np.reshape(dthr_corr,[3750*3750])    
     dtime = np.fromfile(dtime_fn, dtype=np.float32)
-#    dtime = np.flipud(dtime.reshape([3750,3750]))
+#    dtime = dtime.reshape([3750,3750])
 #    plt.imshow(dtime)
 #    dtime = np.reshape(dtime,[3750*3750])
     fmax = np.fromfile(fmax_fn, dtype=np.float32)
-#    fmax = np.flipud(fmax.reshape([3750,3750]))
+#    fmax = fmax.reshape([3750,3750])
 #    plt.imshow(fmax, vmin=0, vmax=0.3)
 #    fmax = np.reshape(fmax,[3750*3750])    
     precip = np.fromfile(precip_fn, dtype=np.float32)
-#    precip = np.flipud(precip.reshape([3750,3750]))
+#    precip = precip.reshape([3750,3750])
 #    plt.imshow(precip)
 #    precip = np.reshape(precip,[3750*3750])    
     dthr = (dthr/dtime)*dthr_corr
@@ -2517,6 +2639,7 @@ def useTrees(tile,year,doy,trees):
     convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
 
 def getDailyET(tile,year,doy):
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
     LLlat,LLlon = tile2latlon(tile)
     URlat = LLlat+15.
     inUL = [LLlon,URlat]
@@ -2526,13 +2649,14 @@ def getDailyET(tile,year,doy):
     insol24_fn = os.path.join(static_path,'INSOL24', 'RS24_%s_T%03d.tif' % (date,tile))
     g = gdal.Open(insol24_fn,GA_ReadOnly)
     Rs24= g.ReadAsArray()
-    Rs24=(Rs24*0.0864)/24.0 
+#    Rs24=(Rs24*0.0864)/24.0 
+    Rs24=(Rs24/8.)*0.0864 # there are 8 measurements of 3 hour averages from CFSR NOT 24!
     fsun_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_FSUN_%s_T%03d.dat' % (date,tile))
 
     Fsun = np.fromfile(fsun_fn, dtype=np.float32)
     Fsun = Fsun.reshape([3750,3750])
     EFeq=Fsun*(Rs24)
-    ET_24 = EFeq/2.45
+    ET_24 = EFeq*0.408
     ET_24[ET_24<0.01]=0.01
     ET_24 = np.array(ET_24,dtype='Float32')
     
@@ -2541,14 +2665,15 @@ def getDailyET(tile,year,doy):
         os.makedirs(testing_path)
     testing_fn = os.path.join(testing_path,'FINAL_EDAY_%s_T%03d.dat' % (date,tile))
     
-    ET_24.tofile(testing_fn)
-    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
+#    ET_24.tofile(testing_fn)
+#    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
 #    searchPath = os.path.join(testing_path,'*.tif')
 #    outfn = os.path.join(testing_path,'ET_%03d.vrt' % doy)
-#    out_tif_fn = os.path.join(testing_path,'ET_%03d.tif' % doy)
+    out_tif_fn = os.path.join(testing_path,'ET_%03d.tif' % doy)
 #    subprocess.check_output('gdalbuildvrt %s %s' % (outfn, searchPath), shell=True)
 #    out = subprocess.check_output('gdal_translate -of GTiff %s %s' % (outfn,out_tif_fn), shell=True)
 
+    writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,out_tif_fn,gdal.GDT_Float32)
     
 def runSteps(par,trees,tile=None,year=None,doy=None):
     if year==None:
@@ -2558,7 +2683,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
     if doy==None:
         doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
 
-
+    # ============process one tile at a time ==================================
     if par==0:
 #        print("building VIIRS coordinates LUT--------------->")
 #        getIJcoordsPython(tile)
@@ -2584,24 +2709,20 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         getDailyET(tile,year,doy)
         print("============FINISHED!=========================")
     else:
+        # ===========for processing all tiles in parallel======================
         tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
-#        print("building VIIRS coordinates LUT--------------->")
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(getIJcoordsPython)(tile) for tile in tiles)
         print("gridding VIIRS data-------------------------->")
 #        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
         r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
-#        print("gridding VIIRS data-------------------------->")
-#        for tile in tiles:
-#            res = gridMergePython(tile,year,doy)
         print("running I5 atmosperic correction------------->")
 #        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrection)(tile,year,doy) for tile in tiles)
         r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
         print("estimating dtrad and LST2-------------------->")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(pred_dtrad)(tile,year,doy) for tile in tiles)
-        print("build RNET trees----------------------------->")
+        print("build RNET trees----------------------------->") # Using MENA region for building trees
         tree = buildRNETtrees(year,doy)
         print("estimating RNET ----------------------------->")
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(processTiles)(tile,year,doy) for tile in tiles)
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(processTiles)(tile,year,doy) for tile in tiles) # using Tiles to build RNET trees 
         r = Parallel(n_jobs=-1, verbose=5)(delayed(getRNETfromTrees)(tile,year,doy,tree) for tile in tiles)
 #        getRNETfromTrees(tile,year,doy,rnet_cub_out)
         print("estimating FSUN------------------------------>")
@@ -2610,19 +2731,36 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         r = Parallel(n_jobs=-1, verbose=5)(delayed(getDailyET)(tile,year,doy) for tile in tiles)
         print("============FINISHED!=========================")
 
-year = 2015
-#doy = 221
-days = range(225,228)
-#tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
-##tiles = [64,87,88]
-##tiles = [61]
-#start = timer.time() 
-start = timer.time() 
-for doy in days:
-    print("processing day:%d of year:%d" % (doy,year))
-    print("building regression trees from 5KM data---------->")
-    trees = processTrees(year,doy)
-    runSteps(1,trees,None,year,doy)
+
+def main():
+    # Get time and location from user
+    parser = argparse.ArgumentParser()
+    parser.add_argument("year", type=float, default=None, help="year of data")
+    parser.add_argument("start_doy", type=int, default=-1, help="start day of processing. *Note: leave blank for Real-time")
+    parser.add_argument("end_doy", type=int, default=-1, help="end day of processing. *Note: leave blank for Real-time")
+    args = parser.parse_args()
+    year= args.year
+    start_doy = args.start_doy
+    end_doy= args.end_doy
+ 
+    if start_doy == None:
+        start = timer.time()
+        trees = processTrees() # until we have data for other years only use 2015
+        #    runSteps(1,trees,None,year,doy)
+        runSteps(1,trees)   
+        end = timer.time()
+        print("program duration: %f minutes" % ((end - start)/60.))
+    else:
+        days = range(start_doy,end_doy)
+        start = timer.time()
+        for doy in days:
+            print("processing day:%d of year:%d" % (doy,year))
+            print("building regression trees from 5KM data---------->")
+            trees = processTrees(year,doy) # until we have data for other years only use 2015
+            runSteps(1,trees,None,year,doy)
+        end = timer.time()
+        print("program duration: %f minutes" % ((end - start)/60.))
     
-end = timer.time()
-print("program duration: %f minutes" % ((end - start)/60.))
+#year = 2015
+#doy = 221
+#days = range(225,228)
