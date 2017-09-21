@@ -2735,9 +2735,9 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
 def main():
     # Get time and location from user
     parser = argparse.ArgumentParser()
-    parser.add_argument("year", type=int, default=None, help="year of data")
-    parser.add_argument("start_doy", type=int, default=None, help="start day of processing. *Note: leave blank for Real-time")
-    parser.add_argument("end_doy", type=int, default=None, help="end day of processing. *Note: leave blank for Real-time")
+    parser.add_argument("year", nargs='?', type=int, default=None, help="year of data")
+    parser.add_argument("start_doy", nargs='?',type=int, default=None, help="start day of processing. *Note: leave blank for Real-time")
+    parser.add_argument("end_doy", nargs='?',type=int, default=None, help="end day of processing. *Note: leave blank for Real-time")
     args = parser.parse_args()
     year= args.year
     start_doy = args.start_doy
