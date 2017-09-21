@@ -2663,7 +2663,7 @@ def getDailyET(tile,year,doy):
     testing_path = os.path.join(tile_base_path,'ET','%03d' % doy)
     if not os.path.exists(testing_path):
         os.makedirs(testing_path)
-    testing_fn = os.path.join(testing_path,'FINAL_EDAY_%s_T%03d.dat' % (date,tile))
+    testing_fn = os.path.join(testing_path,'FINAL_EDAY_%s_T%03d.tif' % (date,tile))
     
 #    ET_24.tofile(testing_fn)
 #    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
@@ -2673,7 +2673,7 @@ def getDailyET(tile,year,doy):
 #    subprocess.check_output('gdalbuildvrt %s %s' % (outfn, searchPath), shell=True)
 #    out = subprocess.check_output('gdal_translate -of GTiff %s %s' % (outfn,out_tif_fn), shell=True)
 
-    writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,out_tif_fn,gdal.GDT_Float32)
+    writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,testing_fn,gdal.GDT_Float32)
     
 def runSteps(par,trees,tile=None,year=None,doy=None):
     if year==None:
