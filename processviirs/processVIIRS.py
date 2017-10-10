@@ -630,28 +630,33 @@ def processTrees(year=None,doy=None):
         os.makedirs(fsun_trees_tile_ctl) 
     ##===========create dictionary and convert to csv=======
     #======load 5 km data and subset it========================================  
-    dthr_zip_fn = os.path.join(static_path,"5KM","DTHR","DTHR%s.dat.gz" % riseddd)  
+#    dthr_zip_fn = os.path.join(static_path,"5KM","DTHR","DTHR%s.dat.gz" % riseddd) 
+    dthr_fn = glob.glob(os.path.join(static_path,"5KM","DTHR","DTHR*%s.dat" % riseddd))[0]
 #    dthr_fn = os.path.join("./DTHR%s.dat" % date)  
-    gunzip(dthr_zip_fn)
-    dthr = np.fromfile(dthr_zip_fn[:-3], dtype=np.float32)
+#    gunzip(dthr_zip_fn)
+#    dthr = np.fromfile(dthr_zip_fn[:-3], dtype=np.float32)
+    dthr = np.fromfile(dthr_fn, dtype=np.float32)
     dthr = np.flipud(dthr.reshape([3000,7200]))
     dthr_sub = dthr[901:1801,3201:4801]
 #    plt.imshow(dthr_sub)
     dthr = np.reshape(dthr_sub,[dthr_sub.size])
     
-    rnet_zip_fn = os.path.join(static_path,"5KM","RNET","RNET%s.dat.gz" % riseddd)  
+#    rnet_zip_fn = os.path.join(static_path,"5KM","RNET","RNET%s.dat.gz" % riseddd) 
+    rnet_fn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET*%s.dat" % riseddd))[0]
 #    rnet_fn = os.path.join("./RNET%s.dat" % date)  
-    gunzip(rnet_zip_fn)
-    rnet = np.fromfile(rnet_zip_fn[:-3], dtype=np.float32)
+#    gunzip(rnet_zip_fn)
+#    rnet = np.fromfile(rnet_zip_fn[:-3], dtype=np.float32)
+    rnet = np.fromfile(rnet_fn, dtype=np.float32)
     rnet = np.flipud(rnet.reshape([3000,7200]))
     rnet_sub = rnet[901:1801,3201:4801]
 #    plt.imshow(rnet_sub)
     rnet = np.reshape(rnet_sub,[rnet_sub.size])
     
-    fsun_src_fn = os.path.join(static_path,"5KM","FSUN","FSUN%s.dat" % riseddd)  
+#    fsun_src_fn = os.path.join(static_path,"5KM","FSUN","FSUN%s.dat" % riseddd)  
+    fsun_fn = glob.glob(os.path.join(static_path,"5KM","FSUN","FSUN*%s.dat" % riseddd))[0]
 #    fsun_fn = os.path.join("./FSUN%s.dat" % date)  
 #    shutil.copyfile(fsun_src_fn)
-    fsun = np.fromfile(fsun_src_fn, dtype=np.float32)
+    fsun = np.fromfile(fsun_fn, dtype=np.float32)
     fsun = np.flipud(fsun.reshape([3000,7200]))
     writeArray2Tiff(fsun,[0.05,0.05],[-180.,90],inProjection,fsun_src_fn[:-4]+'.tif',gdal.GDT_Float32)
     fsun_sub = fsun[901:1801,3201:4801]
@@ -677,10 +682,12 @@ def processTrees(year=None,doy=None):
 #    plt.imshow(precip_sub)
     precip  = np.reshape(precip_sub,[precip_sub.size])
     
-    trad2_src_fn = os.path.join(static_path,"5KM","TRAD2","TRD2%s.dat.gz" % riseddd)  
+#    trad2_src_fn = os.path.join(static_path,"5KM","TRAD2","TRD2%s.dat.gz" % riseddd)  
+    trad2_fn = glob.glob(os.path.join(static_path,"5KM","TRAD2","TRD2*%s.dat" % riseddd))[0]
 #    trad2_fn = os.path.join("./TRD2%s.dat" % date)  
-    gunzip(trad2_src_fn)
-    trad2 = np.fromfile(trad2_src_fn[:-3], dtype=np.float32)
+#    gunzip(trad2_src_fn)
+#    trad2 = np.fromfile(trad2_src_fn[:-3], dtype=np.float32)
+    trad2 = np.fromfile(trad2_fn, dtype=np.float32)
     trad2 = np.flipud(trad2.reshape([3000,7200]))
     trad2_sub = trad2[901:1801,3201:4801]
 #    plt.imshow(trad2_sub,vmin=280, vmax=320)
@@ -2266,7 +2273,8 @@ def buildRNETtrees(year,doy):
 
     #======process RNET========================================================
 #    srcfn = os.path.join(static_path,'5KM','RNET','RNET%s.dat' % riseddd)
-    srcfn = os.path.join(static_path,'5KM','RNET','RNET2015%03d.dat' % r7day)
+#    srcfn = os.path.join(static_path,'5KM','RNET','RNET2015%03d.dat' % r7day)
+    srcfn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET2016*%s.dat" % r7day))[0]
     rnet = np.fromfile(srcfn, dtype=np.float32)
     rnet = np.flipud(rnet.reshape([3000,7200]))
     inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
@@ -2669,7 +2677,7 @@ def getDailyET(tile,year,doy):
 #    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
 #    searchPath = os.path.join(testing_path,'*.tif')
 #    outfn = os.path.join(testing_path,'ET_%03d.vrt' % doy)
-    out_tif_fn = os.path.join(testing_path,'ET_%03d.tif' % doy)
+#    out_tif_fn = os.path.join(testing_path,'ET_%03d.tif' % doy)
 #    subprocess.check_output('gdalbuildvrt %s %s' % (outfn, searchPath), shell=True)
 #    out = subprocess.check_output('gdal_translate -of GTiff %s %s' % (outfn,out_tif_fn), shell=True)
 
