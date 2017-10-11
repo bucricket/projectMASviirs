@@ -26,6 +26,8 @@ from pydap.client import open_url
 from pydap.cas import urs
 from joblib import Parallel, delayed
 import time as timer
+import math
+import ephem
 
 
 ncdcURL = 'https://nomads.ncdc.noaa.gov/modeldata/cfsv2_analysis_pgbh/'
@@ -90,6 +92,24 @@ def writeArray2Tiff(data,res,UL,inProjection,outfile,outFormat):
     #ds = None
     ds.FlushCache() 
 
+def is_odd(num):
+   return num % 2 != 0
+
+def getGrabTime(time):    
+    return int(((time/600)+1)*600)
+
+
+def getGrabTimeInv(grab_time,doy):
+    if is_odd(grab_time):
+        hr = grab_time-3
+        forecastHR = 3
+    else:
+        hr = grab_time
+        forecastHR = 0
+    if hr == 24:
+        hr = 0
+        doy+=1
+    return hr, forecastHR,doy 
 
 def listFD(url, ext=''):
     page = requests.get(url).text
@@ -146,7 +166,7 @@ def downloadSubscriptionSDR(year=None,doy=None):
         month = dd.month
         day = dd.day
     else:
-        dd=datetime.datetime(year,1,1)+datetime.timedelta(days=doy-1)
+        dd=datetime.datetime(year,1,1)+datetime.timedelta(days=doy)
         month = dd.month
         day = dd.day
     filePath = os.path.join(data_path,"%d" % year,"%02d" % month)
@@ -193,7 +213,7 @@ def getInsolation(earthLoginUser,earthLoginPass,tile,year=None,doy=None):
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         year = dd.year
     if doy==None:
-        doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+        doy = (datetime.date.today()-datetime.date(year,1,1)).days
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         month = dd.month
         day = dd.day
@@ -246,39 +266,43 @@ def getInsolation(earthLoginUser,earthLoginPass,tile,year=None,doy=None):
         '-ts', '%f' % nrow, '%f' % ncol,'-multi','-of','GTiff','%s' % outfile, '%s' % outFN]
         warp(optionList)
 
-def downloadCFSRpython(year=None,doy=None):
-    dstpath =  os.path.join(CFSR_path,"%d" % year,"%03d" % doy)
-    if not os.path.exists(dstpath):
-        os.makedirs(dstpath)    
+def downloadCFSRpython(hr1file,year=None,doy=None):  
     if year==None:
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         year = dd.year
         
     if doy==None:
-        doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+        doy = (datetime.date.today()-datetime.date(year,1,1)).days
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         month = dd.month
         day = dd.day
         url = realtimeURL+'cdas.%d%02d%02d/' % (year,month,day)
     else:
-        dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
+        dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy)
         if (datetime.date.today()-datetime.date(year,dd.month,dd.day)).days > 7:
             url = os.path.join(ncdcfluxURL,"%s" % year,"%d%02d" % (year,dd.month),
                                 "%d%02d%02d" % (year,dd.month,dd.day))
         else:
             url = realtimeURL+'cdas.%d%02d%02d/' % (year,dd.month,dd.day)
-    for i in range(0,8):
-        hrs = [0,0,6,6,12,12,18,18]
-        hr = hrs[i]
-        forcastHRs = [0,3,0,3,0,3,0,3]
-        forcastHR = forcastHRs[i]
-        hr1file = 'cdas1.t%02dz.sfluxgrbf%02d.grib2' % (hr,forcastHR)
-        print url
-        pydapURL = os.path.join(url,hr1file)
-        outFN = os.path.join(dstpath,hr1file)
-        if not os.path.exists(outFN):
-            print "downloading file...%s" % hr1file
-            getHTTPdata(pydapURL,outFN)
+    dstpath =  os.path.join(CFSR_path,"%d" % year,"%03d" % doy)
+    if not os.path.exists(dstpath):
+        os.makedirs(dstpath)  
+#    hrs = (HRs/6)*HRs[0]
+#    forecastHRs = HRs-hrs
+#    for i in range(len(HRs)):
+#
+##    for i in range(0,8):
+##        hrs = [0,0,6,6,12,12,18,18]
+#        hr = hrs[i]
+##        forcastHRs = [0,3,0,3,0,3,0,3]
+#        forecastHR = forecastHRs[i]
+#        hr1file = 'cdas1.t%02dz.sfluxgrbf%02d.grib2' % (hr,forecastHR)
+    print url
+    pydapURL = os.path.join(url,hr1file)
+    outFN = os.path.join(dstpath,hr1file)
+    if not os.path.exists(outFN):
+        print "downloading file...%s" % hr1file
+        getHTTPdata(pydapURL,outFN)
 
 def getCFSRInsolation(tile,year=None,doy=None):
      
@@ -287,15 +311,19 @@ def getCFSRInsolation(tile,year=None,doy=None):
         year = dd.year
         
     if doy==None:
-        doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+        doy = (datetime.date.today()-datetime.date(year,1,1)).days
         dd = datetime.date.today()+datetime.timedelta(days=-1)
     else:
-        dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
+        dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy)
 
         
     dstpath =  os.path.join(CFSR_path,"%d" % year,"%03d" % doy)
     if not os.path.exists(dstpath):
         os.makedirs(dstpath)
+        
+    tile_path = os.path.join(dstpath,"T%03d" % tile)
+    if not os.path.exists(tile_path): 
+        os.makedirs(tile_path)
     
     llLat,llLon = tile2latlon(tile)
     ulx = llLon
@@ -311,21 +339,62 @@ def getCFSRInsolation(tile,year=None,doy=None):
     print "date:%s" % date
     print("tile:T%03d" % tile)
     print "============================================================"
+
+    o = ephem.Observer()
+    o.lat, o.long = '%3.2f' % (llLat+7.5), '%3.2f' % (llLon+7.5)
+    sun = ephem.Sun()
+    #================finding the local noon====================================
+    dd = datetime.datetime(dd.year,dd.month,dd.day,0,0)
+    sunrise = o.previous_rising(sun, start=dd)
+    noon = o.next_transit(sun, start=sunrise)
+    hr = noon.datetime().hour
+    #================finding the sunrise and sunset ===========================
+    dd = datetime.datetime(dd.year,dd.month,dd.day,hr,0)
+    sunrise = o.previous_rising(sun, start=dd)
+    t_rise = sunrise.datetime().hour
+    sunset = o.next_setting(sun, start=dd)
+    t_end = sunset.datetime().hour
+    doy_end = (sunset.datetime()-datetime.datetime(year,1,1)).days+1
+    
+    grab_time = getGrabTime((t_rise-1)*100)
+    firstHR = getGrabTimeInv(grab_time/100,doy)
+    grab_time = getGrabTime((t_end+1)*100)
+    lastHR = getGrabTimeInv(grab_time/100,doy_end)
+    HRs = np.array(range(firstHR[0],lastHR[0]+1,3))
+    if doy_end>doy:
+        HRs=[]
+        doys=[]
+        d1HRs = np.array(range(firstHR[0],24,3))
+        doy1 = np.tile(doy,len(d1HRs))
+        d2HRs = np.array(range(0,lastHR[0],3))
+        doy2 = np.tile(doy_end,len(d2HRs))
+        HRs=np.append(d1HRs,d2HRs)
+        doys = np.append(doy1,doy2)
+    else:
+        doys = np.tile(doy,len(HRs))
+    hrs = (HRs/6)*6
+    forecastHRs = HRs-hrs
     outData = []
-    for i in range(0,8):
-        hrs = [0,0,6,6,12,12,18,18]
+    for i in range(len(HRs)):
+#        hrs = [0,0,6,6,12,12,18,18]
         hr = hrs[i]
-        forcastHRs = [0,3,0,3,0,3,0,3]
-        forcastHR = forcastHRs[i]
-        hr1file = 'cdas1.t%02dz.sfluxgrbf%02d.grib2' % (hr,forcastHR)
-#        print url
-#        pydapURL = os.path.join(url,hr1file)
-        outFN = os.path.join(dstpath,hr1file)
+        doy = doys[i]
+#        forcastHRs = [0,3,0,3,0,3,0,3]
         tile_path = os.path.join(dstpath,"T%03d" % tile)
         if not os.path.exists(tile_path): 
             os.makedirs(tile_path)
-        cfsr_out = os.path.join(tile_path, "CFSR_INSOL_%d%03d_%02d00_00%d.tif" % (year,doy,hr,forcastHR))
-        cfsr_outvrt = os.path.join(tile_path,"CFSR_INSOL_%d%03d_%02d00_00%d.vrt" % (year,doy,hr,forcastHR))
+        dstpath =  os.path.join(CFSR_path,"%d" % year,"%03d" % doy)
+        if not os.path.exists(dstpath):
+            os.makedirs(dstpath)
+        forecastHR = forecastHRs[i]
+        hr1file = 'cdas1.t%02dz.sfluxgrbf%02d.grib2' % (hr,forecastHR)
+        downloadCFSRpython(hr1file,year,doy)
+#        print url
+#        pydapURL = os.path.join(url,hr1file)
+        outFN = os.path.join(dstpath,hr1file)
+
+        cfsr_out = os.path.join(tile_path, "CFSR_INSOL_%d%03d_%02d00_00%d.tif" % (year,doy,hr,forecastHR))
+        cfsr_outvrt = os.path.join(tile_path,"CFSR_INSOL_%d%03d_%02d00_00%d.vrt" % (year,doy,hr,forecastHR))
 #        if not os.path.exists(outFN):
 #            print "downloading file...%s" % hr1file
 #            getHTTPdata(pydapURL,outFN)
@@ -467,7 +536,7 @@ def getCFSRdata(year=None,doy=None):
         year = dd.year
         
     if doy==None:
-        doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+        doy = (datetime.date.today()-datetime.date(year,1,1)).days
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         month = dd.month
         day = dd.day
@@ -557,15 +626,25 @@ tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
 #            except: 
 #              pass
 #print "all done!!"
-year = 2015
-days = range(227,228)
-for doy in days:
-    getCFSRdata(year,doy) 
-    downloadCFSRpython(year,doy)
-    #getCFSRInsolation(63)
-    #r = Parallel(n_jobs=-1, verbose=5)(delayed(getCFSRInsolation)(tile) for tile in tiles)
-    for tile in tiles:
-        getCFSRInsolation(tile,year,doy)
+#year = 2015
+#days = range(227,228)
+#for doy in days:
+#    getCFSRdata(year,doy) 
+##    downloadCFSRpython(year,doy)
+#    #getCFSRInsolation(63)
+#    #r = Parallel(n_jobs=-1, verbose=5)(delayed(getCFSRInsolation)(tile) for tile in tiles)
+#    for tile in tiles:
+#        getCFSRInsolation(tile,year,doy)
+def runProcess(tiles,year=None,doy=None):
+    if year==None: # if None assume its real-time processing    
+        getCFSRdata() 
+        for tile in tiles:
+            getCFSRInsolation(tile)
+    else:
+        getCFSRdata(year,doy)
+        for tile in tiles:
+            getCFSRInsolation(tile,year,doy)
+        
 #end = timer.time()
 #print(end - start)
 #getInsolation('mschull','sushmaMITCH12',63)    
