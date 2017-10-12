@@ -2669,20 +2669,11 @@ def getDailyET(tile,year,doy):
     ET_24[ET_24<0.01]=0.01
     ET_24 = np.array(ET_24,dtype='Float32')
     
-    testing_path = os.path.join(tile_base_path,'ET','%03d' % doy)
-    if not os.path.exists(testing_path):
-        os.makedirs(testing_path)
-    testing_fn = os.path.join(testing_path,'FINAL_EDAY_%s_T%03d.tif' % (date,tile))
-    
-#    ET_24.tofile(testing_fn)
-#    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
-#    searchPath = os.path.join(testing_path,'*.tif')
-#    outfn = os.path.join(testing_path,'ET_%03d.vrt' % doy)
-#    out_tif_fn = os.path.join(testing_path,'ET_%03d.tif' % doy)
-#    subprocess.check_output('gdalbuildvrt %s %s' % (outfn, searchPath), shell=True)
-#    out = subprocess.check_output('gdal_translate -of GTiff %s %s' % (outfn,out_tif_fn), shell=True)
-
-    writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,testing_fn,gdal.GDT_Float32)
+    et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
+    if not os.path.exists(et_path):
+        os.makedirs(et_path)
+    et_fn = os.path.join(et_path,'FINAL_EDAY_%s_T%03d.tif' % (date,tile))
+    writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,et_fn,gdal.GDT_Float32)
     
 def runSteps(par,trees,tile=None,year=None,doy=None):
     if year==None:
@@ -2718,6 +2709,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         useTrees(tile,year,doy,trees)
         print("making ET------------------------------------>")
         getDailyET(tile,year,doy)
+        cleanup(year,doy,tiles)
         print("============FINISHED!=========================")
     else:
         # ===========for processing all tiles in parallel======================
@@ -2741,8 +2733,15 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         r = Parallel(n_jobs=-1, verbose=5)(delayed(useTrees)(tile,year,doy,trees) for tile in tiles)
         print("making ET------------------------------------>")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(getDailyET)(tile,year,doy) for tile in tiles)
+        cleanup(year,doy,tiles)
         print("============FINISHED!=========================")
 
+def cleanup(year,doy,tiles):
+    
+        for tile in tiles:
+            shutil.rmtree(os.path.join(CFSR_path,year,doy,"T%03d" % tile))
+            os.remove(os.path.join(static_path,'INSOL','deg004','insol55_2011%03d_T%03d.tif' % (doy,tile)))
+    
 
 def main():
     # Get time and location from user
