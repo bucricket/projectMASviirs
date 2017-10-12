@@ -659,7 +659,7 @@ def processTrees(year=None,doy=None):
 #    shutil.copyfile(fsun_src_fn)
     fsun = np.fromfile(fsun_fn, dtype=np.float32)
     fsun = np.flipud(fsun.reshape([3000,7200]))
-    writeArray2Tiff(fsun,[0.05,0.05],[-180.,90],inProjection,fsun_src_fn[:-4]+'.tif',gdal.GDT_Float32)
+    writeArray2Tiff(fsun,[0.05,0.05],[-180.,90],inProjection,fsun_fn[:-4]+'.tif',gdal.GDT_Float32)
     fsun_sub = fsun[901:1801,3201:4801]
 #    plt.imshow(fsun_sub[100:400,1000:1300],vmin=0, vmax=0.5)
     fsun  = np.reshape(fsun_sub,[fsun_sub.size])
