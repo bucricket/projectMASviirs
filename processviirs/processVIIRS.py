@@ -2275,7 +2275,7 @@ def buildRNETtrees(year,doy):
     #======process RNET========================================================
 #    srcfn = os.path.join(static_path,'5KM','RNET','RNET%s.dat' % riseddd)
 #    srcfn = os.path.join(static_path,'5KM','RNET','RNET2015%03d.dat' % r7day)
-    srcfn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET2016*%s.dat" % r7day))[0]
+    srcfn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_AVG*%s.dat" % r7day))[0]
     rnet = np.fromfile(srcfn, dtype=np.float32)
     rnet = np.flipud(rnet.reshape([3000,7200]))
     inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
