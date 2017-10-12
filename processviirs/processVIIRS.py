@@ -621,7 +621,7 @@ def processTrees(year=None,doy=None):
         year = dd.year 
     if doy==None:
         doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
-    year = 2015 # TEMP FOR RT PROCESSING  
+    year = 2016 # TEMP FOR RT PROCESSING  
         
     dtimedates = np.array(range(1,366,7))
     r7day = dtimedates[dtimedates>=doy][0]
