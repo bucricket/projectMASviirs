@@ -25,7 +25,7 @@ import time as timer
 from pyresample.ewa import ll2cr, fornav
 import argparse
 import warnings
-from .downloadData import runProcess
+#from .downloadData import runProcess
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 
 #========utility functions=====================================================
@@ -2695,7 +2695,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
     # ============process one tile at a time ==================================
     if par==0:
         tiles = tile
-        runProcess(tiles,year,doy)
+#        runProcess(tiles,year,doy)
 #        print("building VIIRS coordinates LUT--------------->")
 #        getIJcoordsPython(tile)
         print("gridding VIIRS data-------------------------->")
@@ -2722,7 +2722,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
     else:
         # ===========for processing all tiles in parallel======================
         tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
-        runProcess(tiles,year,doy)
+#        runProcess(tiles,year,doy)
         print("gridding VIIRS data-------------------------->")
 #        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
         r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)

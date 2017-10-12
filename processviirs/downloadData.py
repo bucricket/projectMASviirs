@@ -157,7 +157,7 @@ def get_VIIRS_bounds(fn):
             
     return        
 
-def downloadSubscriptionSDR(year=None,doy=None): 
+def downloadSubscriptionSDR(year=None,doy=None,url=None): 
     if year==None:
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         year = dd.year
@@ -172,7 +172,9 @@ def downloadSubscriptionSDR(year=None,doy=None):
     filePath = os.path.join(data_path,"%d" % year,"%02d" % month)
     #download I5 data
     ext = 'h5'
-    url = 'https://download.class.ngdc.noaa.gov/download/sub/hain/85113/'
+    if url==None: # Use subscription
+        url = 'https://download.class.ngdc.noaa.gov/download/sub/hain/85113/'
+
     for fn in listFD(url, ext):
         print fn
         fileName = str(fn.split('/')[-1])  
@@ -189,23 +191,23 @@ def downloadSubscriptionSDR(year=None,doy=None):
                 urllib.urlretrieve(url+fileName, outName)
 
     # download cloud data
-    date = datetime.datetime(year,month, day,0,0,0)
-#    if date > datetime.datetime(2017,3,8,0,0,0):
-    url = 'https://download.class.ngdc.noaa.gov/download/sub/hain/85123/'
-    for fn in listFD(url, ext):
-        print fn
-        fileName = str(fn.split('/')[-1])  
-        if (fileName.split("_")[2]=='d%d%02d%02d' % (year,month,day)):
-#            filePath = os.path.join(outPath,'%s' % fileName.split('_')[0])
-            if not os.path.exists(filePath):
-                os.makedirs(filePath)
+    if url==None:
+        url = 'https://download.class.ngdc.noaa.gov/download/sub/hain/85123/'
         
-            outName=os.path.join(filePath,fileName)
+        for fn in listFD(url, ext):
+            print fn
+            fileName = str(fn.split('/')[-1])  
+            if (fileName.split("_")[2]=='d%d%02d%02d' % (year,month,day)):
+    #            filePath = os.path.join(outPath,'%s' % fileName.split('_')[0])
+                if not os.path.exists(filePath):
+                    os.makedirs(filePath)
             
-            if not os.path.isfile(outName):
-                print "downloading:  %s" % fileName
-                #wget.download(url+fileName,out=outName)
-                urllib.urlretrieve(url+fileName, outName)
+                outName=os.path.join(filePath,fileName)
+                
+                if not os.path.isfile(outName):
+                    print "downloading:  %s" % fileName
+                    #wget.download(url+fileName,out=outName)
+                    urllib.urlretrieve(url+fileName, outName)
                 
                 
 def getInsolation(earthLoginUser,earthLoginPass,tile,year=None,doy=None):
@@ -635,16 +637,45 @@ tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
 #    #r = Parallel(n_jobs=-1, verbose=5)(delayed(getCFSRInsolation)(tile) for tile in tiles)
 #    for tile in tiles:
 #        getCFSRInsolation(tile,year,doy)
-def runProcess(tiles,year=None,doy=None):
-    if year==None: # if None assume its real-time processing    
+def runProcess(tiles,year=None,doy=None,downloadurl=None):
+    if year==None: # if None assume its real-time processing 
+        downloadSubscriptionSDR()
         getCFSRdata() 
         for tile in tiles:
             getCFSRInsolation(tile)
     else:
+        downloadSubscriptionSDR(year,doy,downloadurl)
         getCFSRdata(year,doy)
         for tile in tiles:
             getCFSRInsolation(tile,year,doy)
-        
+ 
+
+
+def main():
+    # Get time and location from user
+    parser = argparse.ArgumentParser()
+    parser.add_argument("year", nargs='?', type=int, default=None, help="year of data")
+    parser.add_argument("start_doy", nargs='?',type=int, default=None, help="start day of processing. *Note: leave blank for Real-time")
+    parser.add_argument("end_doy", nargs='?',type=int, default=None, help="end day of processing. *Note: leave blank for Real-time")
+    parser.add_argument("download_url", nargs='?',type=str, default=None, help="download url from CLASS e-mail. *Note: leave blank for Real-time")
+    args = parser.parse_args()
+    year= args.year
+    start_doy = args.start_doy
+    end_doy= args.end_doy
+    download_url = args.download_url
+ 
+    if start_doy == None:
+        start = timer.time()
+        runProcess(tiles)
+        end = timer.time()
+        print("program duration: %f minutes" % ((end - start)/60.))
+    else:
+        days = range(start_doy,end_doy)
+        start = timer.time()
+        for doy in days:
+            runProcess(tiles,year,doy,download_url)
+        end = timer.time()
+        print("program duration: %f minutes" % ((end - start)/60.))       
 #end = timer.time()
 #print(end - start)
 #getInsolation('mschull','sushmaMITCH12',63)    
