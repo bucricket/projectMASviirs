@@ -867,7 +867,9 @@ def gridMergePythonEWA(tile,year,doy):
     ALEXIres = [0.004,0.004]
     latmid = LLlat+7.5
     lonmid = LLlon+7.5
-    db = pd.read_csv(os.path.join(data_path,'I5_database.csv'))
+    dirpath = os.path.join(data_path,"%d" % year, "%02d" % dd.month)
+    db = pd.read_csv(os.path.join(dirpath,'I5_database.csv'))
+#    db = pd.read_csv(os.path.join(data_path,'I5_database.csv'))
     db = pd.DataFrame.drop_duplicates(db)
     
     
@@ -1418,7 +1420,9 @@ def gridMergePython(tile,year,doy):
 
     latmid = LLlat+7.5
     lonmid = LLlon+7.5
-    db = pd.read_csv(os.path.join(data_path,'I5_database.csv'))
+#    db = pd.read_csv(os.path.join(data_path,'I5_database.csv'))
+    dirpath = os.path.join(data_path,"%d" % year, "%02d" % dd.month)
+    db = pd.read_csv(os.path.join(dirpath,'I5_database.csv'))
     db = pd.DataFrame.drop_duplicates(db)
     
     
