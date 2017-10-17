@@ -2776,7 +2776,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         useTrees(tile,year,doy,trees)
         print("making ET------------------------------------>")
         getDailyET(tile,year,doy)
-        cleanup(year,doy,tiles)
+#        cleanup(year,doy,tiles)
         print("============FINISHED!=========================")
     else:
         # ===========for processing all tiles in parallel======================
@@ -2802,7 +2802,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         r = Parallel(n_jobs=-1, verbose=5)(delayed(useTrees)(tile,year,doy,trees) for tile in tiles)
         print("making ET------------------------------------>")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(getDailyET)(tile,year,doy) for tile in tiles)
-        cleanup(year,doy,tiles)
+#        cleanup(year,doy,tiles)
         print("============FINISHED!=========================")
 
     
