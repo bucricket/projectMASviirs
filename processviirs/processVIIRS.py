@@ -2733,6 +2733,13 @@ def createFolders(tile,year,doy):
     et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
     if not os.path.exists(et_path):
         os.makedirs(et_path)
+
+def cleanup(year,doy,tiles):
+    
+        for tile in tiles:
+            shutil.rmtree(os.path.join(CFSR_path,year,doy,"T%03d" % tile))
+            os.remove(os.path.join(static_path,'INSOL','deg004','insol55_2011%03d_T%03d.tif' % (doy,tile)))
+
         
 def runSteps(par,trees,tile=None,year=None,doy=None):
     if year==None:
@@ -2798,11 +2805,6 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         cleanup(year,doy,tiles)
         print("============FINISHED!=========================")
 
-def cleanup(year,doy,tiles):
-    
-        for tile in tiles:
-            shutil.rmtree(os.path.join(CFSR_path,year,doy,"T%03d" % tile))
-            os.remove(os.path.join(static_path,'INSOL','deg004','insol55_2011%03d_T%03d.tif' % (doy,tile)))
     
 
 def main():
