@@ -25,6 +25,7 @@ import time as timer
 from pyresample.ewa import ll2cr, fornav
 import argparse
 import warnings
+import sqlite3
 #from .downloadData import runProcess
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 
@@ -870,16 +871,24 @@ def gridMergePythonEWA(tile,year,doy):
     dirpath = os.path.join(data_path,"%d" % year, "%02d" % dd.month)
     db = pd.read_csv(os.path.join(dirpath,'I5_database.csv'))
 #    db = pd.read_csv(os.path.join(data_path,'I5_database.csv'))
+    I5_db_name = os.path.join(data_path,'viirs_database.db')
     db = pd.DataFrame.drop_duplicates(db)
     
     
     #=====================Day==================================================
     #==========================================================================
-    files = db[(db['south']-5 <= latmid) & (db['north']+5 >= latmid) & 
-               (db['west']-5 <= lonmid) & (db['east']+5 >= lonmid) & 
-               (db['year'] == year) & (db['doy'] == doy) & (db['N_Day_Night_Flag'] == 'Day')]
-    filenames = files['filename']
-
+#    files = db[(db['south']-5 <= latmid) & (db['north']+5 >= latmid) & 
+#               (db['west']-5 <= lonmid) & (db['east']+5 >= lonmid) & 
+#               (db['year'] == year) & (db['doy'] == doy) & (db['N_Day_Night_Flag'] == 'Day')]
+#    filenames = files['filename']
+    
+    conn = sqlite3.connect( I5_db_name )
+    filenames = pd.read_sql_query("SELECT * from i5 WHERE (year = %d) AND "
+                              "(doy = %03d) AND (south-5 <= %f) AND "
+                              "(north+5 >= %f) AND (west-5 <= %f) "
+                              "AND (east+5 >= %f) AND (N_Day_Night_Flag = 'Day')" 
+                              % (year,doy,latmid,latmid,lonmid,lonmid), conn).filename
+    conn.close()
     orbits = []
     for fn in filenames:
         parts = fn.split(os.sep)[-1].split('_')
@@ -1141,10 +1150,18 @@ def gridMergePythonEWA(tile,year,doy):
     
     #=====================Night================================================
     #==========================================================================
-    files = db[(db['south']-5 <= latmid) & (db['north']+5 >= latmid) & 
-               (db['west']-5 <= lonmid) & (db['east']+5 >= lonmid) & 
-               (db['year'] == year) & (db['doy'] == doy) & (db['N_Day_Night_Flag'] == 'Night')]
-    filenames = files['filename']
+#    files = db[(db['south']-5 <= latmid) & (db['north']+5 >= latmid) & 
+#               (db['west']-5 <= lonmid) & (db['east']+5 >= lonmid) & 
+#               (db['year'] == year) & (db['doy'] == doy) & (db['N_Day_Night_Flag'] == 'Night')]
+#    filenames = files['filename']
+    
+    conn = sqlite3.connect( I5_db_name )
+    filenames = pd.read_sql_query("SELECT * from i5 WHERE (year = %d) AND "
+                              "(doy = %03d) AND (south-5 <= %f) AND "
+                              "(north+5 >= %f) AND (west-5 <= %f) "
+                              "AND (east+5 >= %f) AND (N_Day_Night_Flag = 'Night')" 
+                              % (year,doy,latmid,latmid,lonmid,lonmid), conn).filename
+    conn.close()
 
     orbits = []
     for fn in filenames:
