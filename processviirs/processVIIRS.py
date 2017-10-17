@@ -628,8 +628,8 @@ def processTrees(year=None,doy=None):
     r7day = dtimedates[dtimedates>=doy][0]
     riseddd="%d%03d" %(year,r7day)
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
-    if not os.path.exists(fsun_trees_tile_ctl):
-        os.makedirs(fsun_trees_tile_ctl) 
+#    if not os.path.exists(fsun_trees_tile_ctl):
+#        os.makedirs(fsun_trees_tile_ctl) 
     ##===========create dictionary and convert to csv=======
     #======load 5 km data and subset it========================================  
 #    dthr_zip_fn = os.path.join(static_path,"5KM","DTHR","DTHR%s.dat.gz" % riseddd) 
@@ -856,8 +856,8 @@ def getIJcoordsPython(tile):
     
 def gridMergePythonEWA(tile,year,doy):
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
-    if not os.path.exists(tile_path):
-        os.makedirs(tile_path)
+#    if not os.path.exists(tile_path):
+#        os.makedirs(tile_path)
     dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
     date = "%d%03d" % (year,doy)
     LLlat,LLlon = tile2latlon(tile)
@@ -2262,8 +2262,8 @@ def pred_dtrad(tile,year,doy):
     #================+TESTING==================================================
     
     testing_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
-    if not os.path.exists(testing_path):
-        os.makedirs(testing_path)
+#    if not os.path.exists(testing_path):
+#        os.makedirs(testing_path)
     testing_fn = os.path.join(testing_path,'FINAL_DTRAD_%s_T%03d.dat' % (date,tile))
 #    dtime = np.fromfile(dtrad_fn, dtype=np.float32)
 #    dtime= np.flipud(dtime.reshape([3750,3750]))
@@ -2274,8 +2274,8 @@ def pred_dtrad(tile,year,doy):
 #    dtime= np.flipud(dtime.reshape([3750,3750]))
 #    dtime.tofile(lst_fn)
     testing_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
-    if not os.path.exists(testing_path):
-        os.makedirs(testing_path)
+#    if not os.path.exists(testing_path):
+#        os.makedirs(testing_path)
     testing_fn = os.path.join(testing_path,'FINAL_DAY_LST_TIME2_%s_T%03d.dat' % (date,tile))
     
     shutil.copyfile(lst_fn,testing_fn)
@@ -2352,8 +2352,8 @@ def buildRNETtrees(year,doy):
                 (inDF["insol"] > 0.0) & (inDF["lwdn"] > 0.0) &
                 (inDF["lst2"] > 0.0), ["rnet","albedo","insol","lwdn","lst2"]]
     calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl')
-    if not os.path.exists(calc_rnet_tile_ctl):
-        os.makedirs(calc_rnet_tile_ctl) 
+#    if not os.path.exists(calc_rnet_tile_ctl):
+#        os.makedirs(calc_rnet_tile_ctl) 
     file_data = os.path.join(calc_rnet_tile_ctl,'rnet.data')
     outDF.to_csv(file_data , header=True, index=False,columns=["rnet",
                                         "albedo","insol","lwdn","lst2"])
@@ -2420,8 +2420,8 @@ def getRNETfromTrees(tile,year,doy,rnet_cub_out):
     rnet_out = readCubistOut(rnet_cub_out,cubDF)
     rnet_out = np.reshape(rnet_out, [3750,3750])
     rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
-    if not os.path.exists(rnet_tile):
-        os.makedirs(rnet_tile)
+#    if not os.path.exists(rnet_tile):
+#        os.makedirs(rnet_tile)
     finalrnet_fn = os.path.join(rnet_tile,'FINAL_RNET_%s_T%03d.dat' % (date,tile))
     rnet_out = np.array(rnet_out,dtype='Float32')
     rnet_out.tofile(finalrnet_fn)
@@ -2429,8 +2429,8 @@ def getRNETfromTrees(tile,year,doy,rnet_cub_out):
     
     #======TESTING=============================================================
     testing_path = os.path.join(tile_base_path,'RNET','%03d' % doy)
-    if not os.path.exists(testing_path):
-        os.makedirs(testing_path)
+#    if not os.path.exists(testing_path):
+#        os.makedirs(testing_path)
     testing_fn = os.path.join(testing_path,'FINAL_RNET_%s_T%03d.dat' % (date,tile))
     shutil.copyfile(finalrnet_fn,testing_fn)
     convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)  
@@ -2460,8 +2460,8 @@ def processTiles(tile,year,doy):
     insol = np.reshape(insol,[halfdeg_sizeArr])
     
     viirs_tile_path = os.path.join(calc_rnet_path,'viirs','T%03d' % tile)
-    if not os.path.exists(viirs_tile_path):
-        os.makedirs(viirs_tile_path) 
+#    if not os.path.exists(viirs_tile_path):
+#        os.makedirs(viirs_tile_path) 
     #====process VIIRS resolution =============================================   
     insol_viirs_fn = os.path.join(viirs_tile_path,'INSOL_%03d_%s.dat' % (tile,date))
     write_agg_insol_viirs(insol_viirs_fn,date_tile_str)
@@ -2528,8 +2528,8 @@ def processTiles(tile,year,doy):
                 (inDF["insol"] > 0.0) & (inDF["lwdn"] > 0.0) &
                 (inDF["lst2"] > 0.0), ["rnet","albedo","insol","lwdn","lst2"]]
     calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl','T%03d' % tile )
-    if not os.path.exists(calc_rnet_tile_ctl):
-        os.makedirs(calc_rnet_tile_ctl) 
+#    if not os.path.exists(calc_rnet_tile_ctl):
+#        os.makedirs(calc_rnet_tile_ctl) 
     file_data = os.path.join(calc_rnet_tile_ctl,'rnet.data')
     outDF.to_csv(file_data , header=True, index=False,columns=["rnet",
                                         "albedo","insol","lwdn","lst2"])
@@ -2550,8 +2550,8 @@ def processTiles(tile,year,doy):
     rnet_out = readCubistOut(rnet_cub_out,cubDF)
     rnet_out = np.reshape(rnet_out, [3750,3750])
     rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
-    if not os.path.exists(rnet_tile):
-        os.makedirs(rnet_tile)
+#    if not os.path.exists(rnet_tile):
+#        os.makedirs(rnet_tile)
     finalrnet_fn = os.path.join(rnet_tile,'FINAL_RNET_%s_T%03d.dat' % (date,tile))
     rnet_out = np.array(rnet_out,dtype='Float32')
     rnet_out.tofile(finalrnet_fn)
@@ -2559,8 +2559,8 @@ def processTiles(tile,year,doy):
     
     #======TESTING=============================================================
     testing_path = os.path.join(tile_base_path,'RNET','%03d' % doy)
-    if not os.path.exists(testing_path):
-        os.makedirs(testing_path)
+#    if not os.path.exists(testing_path):
+#        os.makedirs(testing_path)
     testing_fn = os.path.join(testing_path,'FINAL_RNET_%s_T%03d.dat' % (date,tile))
     shutil.copyfile(finalrnet_fn,testing_fn)
     convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
@@ -2661,8 +2661,8 @@ def useTrees(tile,year,doy,trees):
 #    convertBin2tif(out_nancount_fn,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
 # =============================================================================
     testing_path = os.path.join(tile_base_path,'FSUN','%03d' % doy)
-    if not os.path.exists(testing_path):
-        os.makedirs(testing_path)
+#    if not os.path.exists(testing_path):
+#        os.makedirs(testing_path)
     testing_fn = os.path.join(testing_path,'FINAL_FSUN_%s_T%03d.dat' % (date,tile))
 
     shutil.copyfile(out_fsun_fn,testing_fn)
@@ -2691,11 +2691,49 @@ def getDailyET(tile,year,doy):
     ET_24 = np.array(ET_24,dtype='Float32')
     
     et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
-    if not os.path.exists(et_path):
-        os.makedirs(et_path)
+#    if not os.path.exists(et_path):
+#        os.makedirs(et_path)
     et_fn = os.path.join(et_path,'FINAL_EDAY_%s_T%03d.tif' % (date,tile))
     writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,et_fn,gdal.GDT_Float32)
     
+def createFolders(tile,year,doy):
+    fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
+    if not os.path.exists(fsun_trees_tile_ctl):
+        os.makedirs(fsun_trees_tile_ctl) 
+    tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
+    if not os.path.exists(tile_path):
+        os.makedirs(tile_path)
+        
+    testing_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
+    if not os.path.exists(testing_path):
+        os.makedirs(testing_path)
+    testing_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
+    if not os.path.exists(testing_path):
+        os.makedirs(testing_path)
+        
+    calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl')
+    if not os.path.exists(calc_rnet_tile_ctl):
+        os.makedirs(calc_rnet_tile_ctl) 
+        
+    rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
+    if not os.path.exists(rnet_tile):
+        os.makedirs(rnet_tile)
+    testing_path = os.path.join(tile_base_path,'RNET','%03d' % doy)
+    if not os.path.exists(testing_path):
+        os.makedirs(testing_path)
+        
+    viirs_tile_path = os.path.join(calc_rnet_path,'viirs','T%03d' % tile)
+    if not os.path.exists(viirs_tile_path):
+        os.makedirs(viirs_tile_path) 
+        
+    testing_path = os.path.join(tile_base_path,'FSUN','%03d' % doy)
+    if not os.path.exists(testing_path):
+        os.makedirs(testing_path)
+        
+    et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
+    if not os.path.exists(et_path):
+        os.makedirs(et_path)
+        
 def runSteps(par,trees,tile=None,year=None,doy=None):
     if year==None:
         dd = datetime.date.today()+datetime.timedelta(days=-1)
@@ -2707,6 +2745,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
     # ============process one tile at a time ==================================
     if par==0:
         tiles = tile
+        createFolders(tile,year,doy)
 #        runProcess(tiles,year,doy)
 #        print("building VIIRS coordinates LUT--------------->")
 #        getIJcoordsPython(tile)
@@ -2735,6 +2774,8 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
     else:
         # ===========for processing all tiles in parallel======================
         tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
+        for tile in tiles:
+            createFolders(tile,year,doy)
 #        runProcess(tiles,year,doy)
         print("gridding VIIRS data-------------------------->")
 #        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
