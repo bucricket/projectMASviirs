@@ -2843,7 +2843,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         print("estimating RNET ----------------------------->")
 #        r = Parallel(n_jobs=-1, verbose=5)(delayed(processTiles)(tile,year,doy) for tile in tiles) # using Tiles to build RNET trees 
 #        r = Parallel(n_jobs=-1, verbose=5)(delayed(getRNETfromTrees)(tile,year,doy,tree) for tile in tiles)
-        getRNETfromTrees(tile,year,doy,rnet_cub_out)
+        getRNETfromTrees(tile,year,doy,tree)
         print("estimating FSUN------------------------------>")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(useTrees)(tile,year,doy,trees) for tile in tiles)
         print("making ET------------------------------------>")
