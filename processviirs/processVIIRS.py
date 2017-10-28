@@ -601,7 +601,7 @@ def get_results_cubist_model(infile,outDF):
         if condition[0] == 'conds':
             var1 = condition[1].split('"')
             nconds = var1[1]
-            rules = '('
+            rules = ''
             for x in range(0,int(nconds)+1):
                 c1 = all_lines[count+x].split()
                 cvar = c1[1].split('"')
