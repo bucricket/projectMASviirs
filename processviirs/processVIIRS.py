@@ -611,7 +611,7 @@ def get_results_cubist_model(infile,outDF):
                     rules = rules +'(outDF.'+str(cvar[1])+str(cond[1])+str(cval[1])+') & '
                 elif x == int(nconds)-1:
 #                if x == (int(nconds)):
-                    rules = rules +'(outDF.'+str(cvar[1])+str(cond[1])+str(cval[1])+'))'
+                    rules = rules +'(outDF.'+str(cvar[1])+str(cond[1])+str(cval[1])+')'
                 else:
 #                if x == int(nconds):
 
