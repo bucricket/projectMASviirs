@@ -627,8 +627,8 @@ def get_results_cubist_model(infile,outDF):
                         
                 print rules
                 print formula
-            rule2use=eval('(%s)'% rules)
-            var[np.where(rule2use)] = eval('(%s)' % formula)
+                rule2use=eval('(%s)'% rules)
+                var[np.where(rule2use)] = eval('(%s)' % formula)
     return var
 
 def planck(X,ANV):
