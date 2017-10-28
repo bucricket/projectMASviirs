@@ -588,6 +588,49 @@ def readCubistOut(input,outDF):
             lstOut[np.where(mask)] = -9999.
     return lstOut  
 
+def get_results_cubist_model(infile,outDF): 
+    f = open(infile,'r')
+    all_lines = f.readlines()
+    f.close()
+    var = np.zeros([outDF.shape[0]])
+    count=0
+    for line in all_lines:
+        chars = line.split()
+        condition = chars[0].split('=')
+        count=count+1
+        if condition[0] == 'conds':
+            var1 = condition[1].split('"')
+            nconds = var1[1]
+            rules = '('
+            for x in range(0,int(nconds)+1):
+                c1 = all_lines[count+x].split()
+                cvar = c1[1].split('"')
+                cval = c1[2].split('"')
+                cond = c1[3].split('"')
+                if x < int(nconds)-1:
+                    rules = rules +'(outDF.'+str(cvar[1])+str(cond[1])+str(cval[1])+') & '
+                elif x == int(nconds)-1:
+#                if x == (int(nconds)):
+                    rules = rules +'(outDF.'+str(cvar[1])+str(cond[1])+str(cval[1])+'))'
+                else:
+#                if x == int(nconds):
+
+                    print c1
+                    a0=c1[0].split('"')
+                    print str(a0[1])
+                    formula=' '+str(a0[1])
+                    for y in range(1,len(c1),2):
+#                        print y, len(c1)
+                        a1=c1[y].split('"') 
+                        a2=c1[y+1].split('"')
+                        formula=formula+'+('+str(a2[1])+'*outDF.'+str(a1[1])+'[rules2use]'+')'
+                        
+                print rules
+                print formula
+            rule2use=eval('(%s)'% rules)
+            var[np.where(rule2use)] = eval('(%s)' % formula)
+    return var
+
 def planck(X,ANV):
     C1=1.191E-9
     C2=1.439
@@ -2367,6 +2410,8 @@ def buildRNETtrees(year,doy):
     return rnet_cub_out
 
 def getRNETfromTrees(tile,year,doy,rnet_cub_out):
+    calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl')
+    cubist_name = os.path.join(calc_rnet_tile_ctl,'rnet.model')
     LLlat,LLlon = tile2latlon(tile)
     URlat = LLlat+15.
     URlon = LLlon+15.
@@ -2417,7 +2462,8 @@ def getRNETfromTrees(tile,year,doy,rnet_cub_out):
     #=======get the final_rnet=================================================
     cubDict = {'albedo':albedo, 'insol':insol_viirs, 'lwdn': lwdn_viirs, 'lst2':lst2}
     cubDF = pd.DataFrame.from_dict(cubDict)
-    rnet_out = readCubistOut(rnet_cub_out,cubDF)
+#    rnet_out = readCubistOut(rnet_cub_out,cubDF)
+    rnet_out = get_results_cubist_model(cubist_name,cubDF)
     rnet_out = np.reshape(rnet_out, [3750,3750])
     rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
 #    if not os.path.exists(rnet_tile):
