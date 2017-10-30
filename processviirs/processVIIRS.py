@@ -2466,8 +2466,8 @@ def getRNETfromTrees(tile,year,doy,rnet_cub_out):
     #=======get the final_rnet=================================================
     cubDict = {'albedo':albedo, 'insol':insol_viirs, 'lwdn': lwdn_viirs, 'lst2':lst2}
     cubDF = pd.DataFrame.from_dict(cubDict)
-#    rnet_out = readCubistOut(rnet_cub_out,cubDF)
-    rnet_out = get_results_cubist_model(cubist_name,cubDF)
+    rnet_out = readCubistOut(rnet_cub_out,cubDF)
+#    rnet_out = get_results_cubist_model(cubist_name,cubDF)
     rnet_out = np.reshape(rnet_out, [3750,3750])
     rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
 #    if not os.path.exists(rnet_tile):
