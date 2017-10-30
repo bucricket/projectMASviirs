@@ -624,8 +624,8 @@ def get_results_cubist_model(infile,outDF):
                         a1=c1[y].split('"') 
                         a2=c1[y+1].split('"')
                         formula=formula+'+('+str(a2[1])+'*outDF.'+str(a1[1])+'[rules2use]'+')'
-                rule2use=eval('(%s)'% rules)
-                var[np.where(rule2use)] = eval('(%s)' % formula)
+            rule2use=eval('(%s)'% rules)
+            var[np.where(rule2use)] = eval('(%s)' % formula)
     return var
 
 def planck(X,ANV):
@@ -2789,7 +2789,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         year = dd.year
         
-    if doy==None:
+    if doy==None:# NOTE: this is for yesterday
         doy = (datetime.date.today()-datetime.date(year,1,1)).days
 
     # ============process one tile at a time ==================================
@@ -2826,15 +2826,15 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
         for tile in tiles:
             createFolders(tile,year,doy)
-##        runProcess(tiles,year,doy)
-#        print("gridding VIIRS data-------------------------->")
-##        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
-#        print("running I5 atmosperic correction------------->")
-##        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrection)(tile,year,doy) for tile in tiles)
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
-#        print("estimating dtrad and LST2-------------------->")
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(pred_dtrad)(tile,year,doy) for tile in tiles)
+#        runProcess(tiles,year,doy)
+        print("gridding VIIRS data-------------------------->")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
+        print("running I5 atmosperic correction------------->")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrection)(tile,year,doy) for tile in tiles)
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
+        print("estimating dtrad and LST2-------------------->")
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(pred_dtrad)(tile,year,doy) for tile in tiles)
         print("build RNET trees----------------------------->") # Using MENA region for building trees
         tree = buildRNETtrees(year,doy)
         print("estimating RNET ----------------------------->")
