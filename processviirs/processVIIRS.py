@@ -597,13 +597,16 @@ def get_results_cubist_model(infile,outDF):
     for line in all_lines:
         chars = line.split()
         condition = chars[0].split('=')
-        count=count+1
+        count+=1
         if condition[0] == 'conds':
             var1 = condition[1].split('"')
             nconds = var1[1]
             rules = ''
-            for x in range(0,int(nconds)+1):
+            for x in range(int(nconds)):
+#                x+=1
+#                print(x)
                 c1 = all_lines[count+x].split()
+                print(c1)
                 cvar = c1[1].split('"')
                 cval = c1[2].split('"')
                 cond = c1[3].split('"')
@@ -611,10 +614,12 @@ def get_results_cubist_model(infile,outDF):
                     rules = rules +'(outDF.'+str(cvar[1])+str(cond[1])+str(cval[1])+') & '
                 elif x == int(nconds)-1:
 #                if x == (int(nconds)):
-                    rules = rules +'(outDF.'+str(cvar[1])+str(cond[1])+str(cval[1])+')'
-                else:
-#                if x == int(nconds):
 
+                    rules = rules +'(outDF.'+str(cvar[1])+str(cond[1])+str(cval[1])+')'
+                    c1 = all_lines[count+x+1].split()
+#                else:
+#                if x == int(nconds):
+                    print("I'm here")
 #                    print c1
                     a0=c1[0].split('"')
 #                    print str(a0[1])
@@ -624,9 +629,10 @@ def get_results_cubist_model(infile,outDF):
                         a1=c1[y].split('"') 
                         a2=c1[y+1].split('"')
                         formula=formula+'+('+str(a2[1])+'*outDF.'+str(a1[1])+'[rule2use]'+')'
-                print(rules)
-                rule2use=eval('(%s)'% rules)
-                var[np.where(rule2use)] = eval('(%s)' % formula)
+            print(rules)
+            print(formula)
+            rule2use=eval('(%s)'% rules)
+            var[np.where(rule2use)] = eval('(%s)' % formula)
     return var
 
 def planck(X,ANV):
