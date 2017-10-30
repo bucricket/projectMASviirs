@@ -615,15 +615,16 @@ def get_results_cubist_model(infile,outDF):
                 else:
 #                if x == int(nconds):
 
-                    print c1
+#                    print c1
                     a0=c1[0].split('"')
-                    print str(a0[1])
+#                    print str(a0[1])
                     formula=' '+str(a0[1])
                     for y in range(1,len(c1),2):
 #                        print y, len(c1)
                         a1=c1[y].split('"') 
                         a2=c1[y+1].split('"')
-                        formula=formula+'+('+str(a2[1])+'*outDF.'+str(a1[1])+'[rules2use]'+')'
+                        formula=formula+'+('+str(a2[1])+'*outDF.'+str(a1[1])+'[rule2use]'+')'
+            print(rules)
             rule2use=eval('(%s)'% rules)
             var[np.where(rule2use)] = eval('(%s)' % formula)
     return var
