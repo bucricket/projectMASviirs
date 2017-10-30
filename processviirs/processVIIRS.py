@@ -594,6 +594,15 @@ def get_results_cubist_model(infile,outDF):
     f.close()
     var = np.zeros([outDF.shape[0]])
     count=0
+    
+    mask_formula = ''
+    for name in list(outDF):
+        count+=1
+        if count < len(list(outDF)):
+            mask_formula = mask_formula + '(outDF["%s"] < 0.0) | ' % name
+        else:
+            mask_formula = mask_formula + '(outDF["%s"] < 0.0) ' % name
+    mask = eval('(%s)' % mask_formula)
     for line in all_lines:
         chars = line.split()
         condition = chars[0].split('=')
@@ -633,6 +642,7 @@ def get_results_cubist_model(infile,outDF):
             print(formula)
             rule2use=eval('(%s)'% rules)
             var[np.where(rule2use)] = eval('(%s)' % formula)
+            var[np.where(mask)] = -9999.
     return var
 
 def planck(X,ANV):
