@@ -888,6 +888,111 @@ def processTrees(year=None,doy=None):
     
     return [out1,out2,out3,out4,out5]
 
+#======This was implemented as part of v0.2 update============================
+def processTreesV2(year=None,doy=None):
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    if year==None:
+        dd = datetime.date.today()+datetime.timedelta(days=-1)
+        year = dd.year 
+    if doy==None:
+        doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+    year = 2016 # TEMP FOR RT PROCESSING  
+        
+    dtimedates = np.array(range(1,366,7))
+    r7day = dtimedates[dtimedates>=doy][0]
+    riseddd="%d%03d" %(year,r7day)
+    fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
+    ##===========create dictionary and convert to csv=======
+    #======load 5 km data and subset it======================================== 
+    dthr_fn = glob.glob(os.path.join(static_path,"5KM","DTHR","DTHR_*%s.dat" % riseddd))[0]
+    dthr = np.fromfile(dthr_fn, dtype=np.float32)
+    dthr = np.flipud(dthr.reshape([3000,7200]))
+    dthr_sub = dthr[901:1801,3201:4801]
+    dthr = np.reshape(dthr_sub,[dthr_sub.size])
+ 
+    trad2_fn = glob.glob(os.path.join(static_path,"5KM","TRAD2","TRD2_*%s.dat" % riseddd))[0]
+    trad2 = np.fromfile(trad2_fn, dtype=np.float32)
+    trad2 = np.flipud(trad2.reshape([3000,7200]))
+    trad2_sub = trad2[901:1801,3201:4801]
+    trad2 = np.reshape(trad2_sub,[trad2_sub.size])
+    
+    rnet_fn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_*%s.dat" % riseddd))[0]
+    rnet = np.fromfile(rnet_fn, dtype=np.float32)
+    rnet = np.flipud(rnet.reshape([3000,7200]))
+    rnet_sub = rnet[901:1801,3201:4801]
+    rnet = np.reshape(rnet_sub,[rnet_sub.size])
+
+    lai_src_fn = os.path.join(static_path,"5KM","LAI","MLAI2014%03d.dat" % r7day)  
+    lai = np.fromfile(lai_src_fn, dtype=np.float32)
+    lai = lai.reshape([3000,7200])
+    lai_sub = lai[901:1801,3201:4801]
+    lai = np.reshape(lai_sub,[lai_sub.size])
+    
+#    fsun_src_fn = os.path.join(static_path,"5KM","FSUN","FSUN%s.dat" % riseddd)  
+    fsun_fn = glob.glob(os.path.join(static_path,"5KM","FSUN","FSUN_*%s.dat" % riseddd))[0]
+    fsun = np.fromfile(fsun_fn, dtype=np.float32)
+    fsun = np.flipud(fsun.reshape([3000,7200]))
+    writeArray2Tiff(fsun,[0.05,0.05],[-180.,90],inProjection,fsun_fn[:-4]+'.tif',gdal.GDT_Float32)
+    fsun_sub = fsun[901:1801,3201:4801]
+    fsun  = np.reshape(fsun_sub,[fsun_sub.size])
+      
+    vegt_src_fn = os.path.join(static_path,"5KM","VEGT","VEG_TYPE_MODIS.dat")  
+    vegt = np.fromfile(vegt_src_fn, dtype=np.float32)
+    vegt_sub = np.flipud(vegt.reshape([900,1600]))
+    vegt  = np.reshape(vegt_sub,[vegt_sub.size])
+    
+    corr_src_fn = os.path.join(static_path,"5KM","CORR","CORR.dat")  
+    corr = np.fromfile(corr_src_fn, dtype=np.float32)
+    corr_sub = np.flipud(corr.reshape([900,1600]))
+    corr  = np.reshape(corr_sub,[corr_sub.size])
+    
+    # note* FMAX is actually max LAI here
+    fmax_src_fn = os.path.join(static_path,"5KM","FMAX","FMAX.dat")  
+    fmax = np.fromfile(fmax_src_fn, dtype=np.float32)
+    fmax = 1-np.exp(-0.5*fmax)
+    fmax_sub = np.flipud(fmax.reshape([900,1600]))
+    fmax  = np.reshape(fmax_sub,[fmax_sub.size])
+    
+    precip_src_fn = os.path.join(static_path,"5KM","PRECIP","PRECIP.dat")  
+    precip = np.fromfile(precip_src_fn, dtype=np.float32)
+    precip_sub = np.flipud(precip.reshape([900,1600]))
+    precip  = np.reshape(precip_sub,[precip_sub.size])
+    
+    dthr_corr = dthr*corr
+    outDict = {'fsun':fsun, 'dthr_corr':dthr_corr,'dthr':dthr, 
+               'rnet': rnet, 'vegt':vegt, 'corr':corr,'lai':lai,
+               'trad2':trad2, 'fmax':fmax, 'precip':precip}
+    outDF = pd.DataFrame.from_dict(outDict)
+    
+    #=========build a funciton for building fsun trees=========================
+    def getTree(p1,p2,f1,f2,v1,v2):
+        out = outDF.loc[(outDF["fsun"] > 0.0) & (outDF["rnet"] > 0.0) & 
+                        (outDF["lai"] > 0.0) & (outDF["trad2"] > 0.0) &
+                        (outDF["dthr"] > 0.0) & (outDF["precip"] >= p1) &
+                        (outDF["precip"] < p2) & (outDF["fmax"] >= f1) &
+                        (outDF["fmax"] < f2) & (outDF["vegt"] >= v1) &
+                        (outDF["vegt"] < v2), ["fsun","dthr_corr","lai","trad2"]]
+    
+        file_data = os.path.join(fsun_trees_tile_ctl,'fsun.data')
+        out.to_csv(file_data , header=True, index=False,columns=["fsun",
+                                                                 "dthr_corr","lai","trad2"])
+            
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun.names')
+        get_trees_fstem_names(file_names)
+        
+        #====run cubist======================================
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun')
+        out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+        return out1
+    #========get trees====================================================
+    cropTree = getTree(0, 2000, 0, 1, 12, 12)
+    grassTree = getTree(0, 2000, 0, 1, 11, 11)
+    shrubTree = getTree(0, 2000, 0, 1, 9, 10)
+    forestTree = getTree(0, 2000, 0, 1, 1, 8)
+    bareTree = getTree(0, 2000, 0, 1, 13, 14)
+    
+    return [cropTree,grassTree,shrubTree,forestTree,bareTree]
+
 def getIJcoordsPython(tile):
     lat,lon = tile2latlon(tile)
 #    lat = lat
@@ -2472,7 +2577,6 @@ def pred_dtradV2(tile,year,doy):
     +forest1[ind1]*forest_pert[ind1]+shrub1[ind1]*shrub_pert[ind1]
     +bare1[ind1]*bare_pert[ind1]+grass1[ind1]*grass_pert[ind1]
     
-
     ind2 = ((precip>=600) and (precip <1200) and (crop2 != -9999.))
     dtrad[ind2] = crop3[ind2]*crop_pert[ind2]
     +forest2[ind2]*forest_pert[ind2]+shrub2[ind2]*shrub_pert[ind2]
@@ -2662,135 +2766,6 @@ def getRNETfromTrees(tile,year,doy,rnet_cub_out):
     shutil.copyfile(finalrnet_fn,testing_fn)
     convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)  
     
-def processTiles(tile,year,doy):
-    LLlat,LLlon = tile2latlon(tile)
-    URlat = LLlat+15.
-    URlon = LLlon+15.
-    inUL = [LLlon,URlat]
-    halfdeg_shape = [300,300]
-    halfdeg_sizeArr = 300*300
-    ALEXI_shape = [3750,3750]
-    ALEXI_res = [0.004,0.004]
-    date = '%d%03d' % (year,doy)
-    date_tile_str = "T%03d_%s" % (tile,date)
-    writeCTL(tile,year,doy)
-    
-    #========process insol====================================================
-        
-    insol_fn = os.path.join(rnet_tile_path,'INSOL_%03d_%s.dat' % (tile,date))
-    write_agg_insol(insol_fn,date_tile_str)
-    out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_insol.gs %3.2f %3.2f  %3.2f  %3.2f'" 
-                                  % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
-
-    read_data = np.fromfile(insol_fn, dtype=np.float32)
-    insol = np.flipud(read_data.reshape([halfdeg_shape[0],halfdeg_shape[1]]))
-    insol = np.reshape(insol,[halfdeg_sizeArr])
-    
-    viirs_tile_path = os.path.join(calc_rnet_path,'viirs','T%03d' % tile)
-#    if not os.path.exists(viirs_tile_path):
-#        os.makedirs(viirs_tile_path) 
-    #====process VIIRS resolution =============================================   
-    insol_viirs_fn = os.path.join(viirs_tile_path,'INSOL_%03d_%s.dat' % (tile,date))
-    write_agg_insol_viirs(insol_viirs_fn,date_tile_str)
-    out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_insol_viirs.gs %3.2f %3.2f  %3.2f  %3.2f'" 
-                                  % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
-    insol_viirs = np.fromfile(insol_viirs_fn, dtype=np.float32)
-    insol_viirs = np.flipud(insol_viirs.reshape([ALEXI_shape[0],ALEXI_shape[1]]))
-    insol_viirs = np.reshape(insol_viirs,[3750*3750])
-    convertBin2tif(insol_viirs_fn,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
-    
-    #======process RNET=======================================================
-    rnet_fn = os.path.join(rnet_tile_path,'RNET_%03d_%s.dat' % (tile,date))
-    write_agg_rnet(rnet_fn,date_tile_str)
-    
-    out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_rnet.gs %3.2f %3.2f  %3.2f  %3.2f'" 
-                                  % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
-    read_data = np.fromfile(rnet_fn, dtype=np.float32)
-    rnet = np.flipud(read_data.reshape([halfdeg_shape[0],halfdeg_shape[1]]))
-    rnet = np.reshape(rnet,[halfdeg_sizeArr])  
-    
-    #======process albedo======================================================
-    albedo_fn = os.path.join(rnet_tile_path,'ALBEDO_%03d_%s.dat' % (tile,date))
-    write_agg_albedo(albedo_fn,date_tile_str)
-    
-    out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_albedo.gs %3.2f %3.2f  %3.2f  %3.2f'" 
-                                  % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
-    albedo = np.fromfile(albedo_fn, dtype=np.float32)
-    albedo = albedo.reshape([halfdeg_shape[0],halfdeg_shape[1]])
-    albedo = np.reshape(albedo,[halfdeg_sizeArr])
-    
-    #=====process LST2=========================================================
-    lst_fn = os.path.join(rnet_tile_path,'LST2_%03d_%s.dat' % (tile,date))
-    write_agg_lst2(lst_fn,date_tile_str)
-    
-    out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_lst2.gs %3.2f %3.2f  %3.2f  %3.2f'" 
-                                  % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
-    lst = np.fromfile(lst_fn, dtype=np.float32)
-
-    #====process LWDN==========================================================
-    lwdn_fn = os.path.join(rnet_tile_path,'LWDN_%03d_%s.dat' % (tile,date))
-    write_agg_lwdn(lwdn_fn,date_tile_str)
-    out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_lwdn.gs %3.2f %3.2f  %3.2f  %3.2f'" 
-                                  % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
-    
-    read_data = np.fromfile(lwdn_fn, dtype=np.float32)
-    lwdn = np.flipud(read_data.reshape([halfdeg_shape[0],halfdeg_shape[1]]))
-    lwdn = np.reshape(lwdn,[halfdeg_sizeArr])
-    
-    #====process VIIRS resolution =============================================
-    lwdn_viirs_fn = os.path.join(viirs_tile_path,'LWDN_%03d_%s.dat' % (tile,date))
-    write_agg_lwdn_viirs(lwdn_viirs_fn,date_tile_str)
-    out = subprocess.check_output("opengrads -blxc 'run ./%s_agg_lwdn_viirs.gs %3.2f %3.2f  %3.2f  %3.2f'" 
-                                  % (date_tile_str,LLlat, URlat, LLlon, URlon), shell=True)
-    
-    lwdn_viirs = np.fromfile(lwdn_viirs_fn, dtype=np.float32)
-    lwdn_viirs = np.flipud(lwdn_viirs.reshape([ALEXI_shape[0],ALEXI_shape[1]]))
-    lwdn_viirs = np.reshape(lwdn_viirs,[3750*3750])
-    convertBin2tif(lwdn_viirs_fn,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
-
-    #==========create fstem.data for cubist====================================
-    outDict = {'rnet': rnet, 'albedo':albedo, 'insol':insol, 'lwdn': lwdn, 'lst2':lst}
-    inDF = pd.DataFrame.from_dict(outDict)
-    outDF = inDF.loc[(inDF["rnet"] > 0.0) & (inDF["albedo"] > 0.0) & 
-                (inDF["insol"] > 0.0) & (inDF["lwdn"] > 0.0) &
-                (inDF["lst2"] > 0.0), ["rnet","albedo","insol","lwdn","lst2"]]
-    calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl','T%03d' % tile )
-#    if not os.path.exists(calc_rnet_tile_ctl):
-#        os.makedirs(calc_rnet_tile_ctl) 
-    file_data = os.path.join(calc_rnet_tile_ctl,'rnet.data')
-    outDF.to_csv(file_data , header=True, index=False,columns=["rnet",
-                                        "albedo","insol","lwdn","lst2"])
-    file_names = os.path.join(calc_rnet_tile_ctl,'rnet.names')
-    get_tiles_fstem_names(file_names)
-    
-    #====run cubist============================================================
-#    print("running cubist...")
-    cubist_name = os.path.join(calc_rnet_tile_ctl,'rnet')
-    rnet_cub_out = subprocess.check_output("cubist -f %s -u -a -r 20" % cubist_name, shell=True)
-
-    #=======get the final_rnet=================================================
-    lst2 = np.fromfile('./%s_lst2.dat' % date_tile_str, dtype=np.float32)
-    albedo = np.fromfile('./%s_albedo.dat' % date_tile_str, dtype=np.float32)
-    convertBin2tif('./%s_albedo.dat' % date_tile_str,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
-    cubDict = {'albedo':albedo, 'insol':insol_viirs, 'lwdn': lwdn_viirs, 'lst2':lst2}
-    cubDF = pd.DataFrame.from_dict(cubDict)
-    rnet_out = readCubistOut(rnet_cub_out,cubDF)
-    rnet_out = np.reshape(rnet_out, [3750,3750])
-    rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
-#    if not os.path.exists(rnet_tile):
-#        os.makedirs(rnet_tile)
-    finalrnet_fn = os.path.join(rnet_tile,'FINAL_RNET_%s_T%03d.dat' % (date,tile))
-    rnet_out = np.array(rnet_out,dtype='Float32')
-    rnet_out.tofile(finalrnet_fn)
-    convertBin2tif(finalrnet_fn,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
-    
-    #======TESTING=============================================================
-    testing_path = os.path.join(tile_base_path,'RNET','%03d' % doy)
-#    if not os.path.exists(testing_path):
-#        os.makedirs(testing_path)
-    testing_fn = os.path.join(testing_path,'FINAL_RNET_%s_T%03d.dat' % (date,tile))
-    shutil.copyfile(finalrnet_fn,testing_fn)
-    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
     
 def useTrees(tile,year,doy,trees):
     LLlat,LLlon = tile2latlon(tile)
@@ -2894,6 +2869,89 @@ def useTrees(tile,year,doy,trees):
 
     shutil.copyfile(out_fsun_fn,testing_fn)
     convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32)
+    
+#=======this module is part of update version 0.2 on Dec. 6, 2017==============
+def useTreesV2(tile,year,doy,trees):
+    LLlat,LLlon = tile2latlon(tile)
+    URlat = LLlat+15.
+    inUL = [LLlon,URlat]
+    ALEXI_shape = [3750,3750]
+    ALEXI_res = [0.004,0.004]
+    dtimedates = np.array(range(1,366,7))
+    r7day = dtimedates[dtimedates>=doy][0]
+    date = '%d%03d' % (year,doy)
+    #=======ALEXI resolution inputs===============================================
+    laidates = np.array(range(1,366,4))
+    r4day = laidates[laidates>=doy][0]
+    laiddd="%d%03d" %(year,r4day)
+    dthr_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_DTRAD_%s_T%03d.dat' % (date,tile))
+    trad2_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_DAY_LST_TIME2_%s_T%03d.dat' % (date,tile))
+#    lai_fn = os.path.join(static_path,'LAI','MLAI_%s_T%03d.dat' % (laiddd,tile)) # only have 2015 so far
+    lai_fn = os.path.join(static_path,'LAI','MLAI_2015%03d_T%03d.dat' % (r4day,tile)) # TEMPORARY FOR RT PROCESSING
+    dthr_corr_fn = os.path.join(static_path,'DTHR_CORR','DTHR_CORR_2010%03d_T%03d.dat' % (r7day,tile))
+    dtime_fn = os.path.join(static_path,'DTIME','DTIME_2014%03d_T%03d.dat' % (r7day,tile))
+    lc_crop_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_crop_T%03d.tif' % tile)
+    lc_grass_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_grass_T%03d.tif' % tile)
+    lc_forest_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_forest_T%03d.tif' % tile)
+    lc_shrub_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_shrub_T%03d.tif' % tile)
+    lc_bare_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_bare_T%03d.tif' % tile)
+    
+    dthr = np.fromfile(dthr_fn, dtype=np.float32)
+    trad2 = np.fromfile(trad2_fn, dtype=np.float32) 
+    lai = np.fromfile(lai_fn, dtype=np.float32)
+    dthr_corr = np.fromfile(dthr_corr_fn, dtype=np.float32)
+    dthr_corr = np.flipud(dthr_corr.reshape([3750,3750]))
+    dthr_corr = np.reshape(dthr_corr,[3750*3750])    
+    dtime = np.fromfile(dtime_fn, dtype=np.float32)    
+    dthr = (dthr/dtime)*dthr_corr
+
+    predDict = {'dthr_corr':dthr_corr,'trad2':trad2,'lai':lai}
+    predDF = pd.DataFrame.from_dict(predDict)
+    
+
+    crop_fsun = readCubistOut(trees[0],predDF)
+    crop_fsun[crop_fsun<0.0] = 0.0
+    crop_fsun = crop_fsun.reshape([3750,3750])
+    grass_fsun = readCubistOut(trees[1],predDF)
+    grass_fsun[grass_fsun<0.0] = 0.0
+    grass_fsun = grass_fsun.reshape([3750,3750])
+    shrub_fsun = readCubistOut(trees[2],predDF)
+    shrub_fsun[shrub_fsun<0.0] = 0.0
+    shrub_fsun = shrub_fsun.reshape([3750,3750])
+    forest_fsun = readCubistOut(trees[3],predDF)
+    forest_fsun[forest_fsun<0.0] = 0.0
+    forest_fsun = forest_fsun.reshape([3750,3750])
+    bare_fsun = readCubistOut(trees[4],predDF)
+    bare_fsun[bare_fsun<0.0] = 0.0
+    bare_fsun = bare_fsun.reshape([3750,3750])
+    
+    #======open LC percentage maps============================================
+    g = gdal.Open(lc_crop_pert_fn)
+    crop_pert = g.ReadAsArray()
+    
+    g = gdal.Open(lc_grass_pert_fn)
+    grass_pert = g.ReadAsArray()
+    
+    g = gdal.Open(lc_forest_pert_fn)
+    forest_pert = g.ReadAsArray()
+    
+    g = gdal.Open(lc_shrub_pert_fn)
+    shrub_pert = g.ReadAsArray()
+    
+    g = gdal.Open(lc_bare_pert_fn)
+    bare_pert = g.ReadAsArray()
+    
+    #=====use the trees to estimate fsun=======================================
+    fsun = crop_fsun*crop_pert+grass_fsun*grass_pert+forest_fsun*forest_pert
+    +shrub_fsun*shrub_pert+bare_fsun*bare_pert
+    fsun = np.array(fsun,dtype='Float32')
+    #====save outputs==========================================================
+    out_fsun_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_FSUN_%s_T%03d.tif' % (date,tile))
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    writeArray2Tiff(fsun,ALEXI_res,inUL,inProjection,out_fsun_fn,gdal.GDT_Float32)
+    testing_path = os.path.join(tile_base_path,'FSUN','%03d' % doy)
+    testing_fn = os.path.join(testing_path,'FINAL_FSUN_%s_T%03d.tif' % (date,tile))
+    shutil.copyfile(out_fsun_fn,testing_fn)
 
 def getDailyET(tile,year,doy):
     inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
@@ -2908,10 +2966,11 @@ def getDailyET(tile,year,doy):
     Rs24= g.ReadAsArray()
 #    Rs24=(Rs24*0.0864)/24.0 
     Rs24=(Rs24/8.)*0.0864 # there are 8 measurements of 3 hour averages from CFSR NOT 24!
-    fsun_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_FSUN_%s_T%03d.dat' % (date,tile))
-
-    Fsun = np.fromfile(fsun_fn, dtype=np.float32)
-    Fsun = Fsun.reshape([3750,3750])
+    fsun_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_FSUN_%s_T%03d.tif' % (date,tile))
+    g = gdal.Open(fsun_fn)
+    Fsun = g.ReadAsArray()
+#    Fsun = np.fromfile(fsun_fn, dtype=np.float32)
+#    Fsun = Fsun.reshape([3750,3750])
     EFeq=Fsun*(Rs24)
     ET_24 = EFeq*0.408
     ET_24[ET_24<0.01]=0.01
@@ -3000,7 +3059,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         print("estimating RNET ----------------------------->")
         processTiles(tile,year,doy)
         print("estimating FSUN------------------------------>")
-        useTrees(tile,year,doy,trees)
+        useTreesV2(tile,year,doy,trees)
         print("making ET------------------------------------>")
         getDailyET(tile,year,doy)
 #        cleanup(year,doy,tiles)
@@ -3010,15 +3069,15 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         tiles = [60,61,62,63,64,83,84,85,86,87,88,107,108,109,110,111,112]
         for tile in tiles:
             createFolders(tile,year,doy)
-##        runProcess(tiles,year,doy)
-#        print("gridding VIIRS data-------------------------->")
-##        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
-#        print("running I5 atmosperic correction------------->")
-##        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrection)(tile,year,doy) for tile in tiles)
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
-#        print("estimating dtrad and LST2-------------------->")
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(pred_dtrad)(tile,year,doy) for tile in tiles)
+#        runProcess(tiles,year,doy)
+        print("gridding VIIRS data-------------------------->")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePython)(tile,year,doy) for tile in tiles)
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
+        print("running I5 atmosperic correction------------->")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrection)(tile,year,doy) for tile in tiles)
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
+        print("estimating dtrad and LST2-------------------->")
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(pred_dtradV2)(tile,year,doy) for tile in tiles)
         print("build RNET trees----------------------------->") # Using MENA region for building trees
         tree = buildRNETtrees(year,doy)
         print("estimating RNET ----------------------------->")
@@ -3026,7 +3085,7 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
         r = Parallel(n_jobs=-1, verbose=5)(delayed(getRNETfromTrees)(tile,year,doy,tree) for tile in tiles)
 #        getRNETfromTrees(tile,year,doy,tree)
         print("estimating FSUN------------------------------>")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(useTrees)(tile,year,doy,trees) for tile in tiles)
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(useTreesV2)(tile,year,doy,trees) for tile in tiles)
         print("making ET------------------------------------>")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(getDailyET)(tile,year,doy) for tile in tiles)
 #        cleanup(year,doy,tiles)
@@ -3047,7 +3106,7 @@ def main():
  
     if start_doy == None:
         start = timer.time()
-        trees = processTrees() # until we have data for other years only use 2015
+        trees = processTreesV2() # until we have data for other years only use 2015
         #    runSteps(1,trees,None,year,doy)
         runSteps(1,trees)   
         end = timer.time()
@@ -3058,7 +3117,7 @@ def main():
         for doy in days:
             print("processing day:%d of year:%d" % (doy,year))
             print("building regression trees from 5KM data---------->")
-            trees = processTrees(year,doy) # until we have data for other years only use 2015
+            trees = processTreesV2(year,doy) # until we have data for other years only use 2015
             runSteps(1,trees,None,year,doy)
         end = timer.time()
         print("program duration: %f minutes" % ((end - start)/60.))
