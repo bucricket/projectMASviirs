@@ -3055,11 +3055,13 @@ def runSteps(par,trees,tile=None,year=None,doy=None):
     #    end = timer.time()
     #    print("atmoscorr time: %f" % (end - startatmos))
         print("estimating dtrad and LST2-------------------->")
-        pred_dtradV2(tile,year,doy)
+        pred_dtrad(tile,year,doy)
+        print("build RNET trees----------------------------->") # Using MENA region for building trees
+        tree = buildRNETtrees(year,doy)
         print("estimating RNET ----------------------------->")
-        processTiles(tile,year,doy)
+        getRNETfromTrees(tile,year,doy,tree)
         print("estimating FSUN------------------------------>")
-        useTreesV2(tile,year,doy,trees)
+        useTrees(tile,year,doy,trees)
         print("making ET------------------------------------>")
         getDailyET(tile,year,doy)
 #        cleanup(year,doy,tiles)
@@ -3106,7 +3108,7 @@ def main():
  
     if start_doy == None:
         start = timer.time()
-        trees = processTreesV2() # until we have data for other years only use 2015
+        trees = processTrees() # until we have data for other years only use 2015
         #    runSteps(1,trees,None,year,doy)
         runSteps(1,trees)   
         end = timer.time()
@@ -3117,7 +3119,7 @@ def main():
         for doy in days:
             print("processing day:%d of year:%d" % (doy,year))
             print("building regression trees from 5KM data---------->")
-            trees = processTreesV2(year,doy) # until we have data for other years only use 2015
+            trees = processTrees(year,doy) # until we have data for other years only use 2015
             runSteps(1,trees,None,year,doy)
         end = timer.time()
         print("program duration: %f minutes" % ((end - start)/60.))
