@@ -349,8 +349,8 @@ def get_results_cubist_model(infile,outDF):
                         a1=c1[y].split('"') 
                         a2=c1[y+1].split('"')
                         formula=formula+'+('+str(a2[1])+'*outDF.'+str(a1[1])+'[rule2use]'+')'
-#            print(rules)
-#            print(formula)
+            print(rules)
+            print(formula)
             rule2use=eval('(%s)'% rules)
             var[np.where(rule2use)] = eval('(%s)' % formula)
             var[np.where(mask)] = -9999.
@@ -670,7 +670,12 @@ def processTreesV2(doy):
                         (outDF["dthr"] > 0.0) & (outDF["precip"] >= p1) &
                         (outDF["precip"] < p2) & (outDF["fmax"] >= f1) &
                         (outDF["fmax"] < f2) & (outDF["vegt"] >= v1) &
-                        (outDF["vegt"] <= v2), ["fsun","dthr_corr","lai","trad2"]]
+                        (outDF["vegt"] <= v2) & (outDF["corr"] != -9999.), ["fsun","dthr_corr","lai","trad2"]]
+#         if (precip(i,j).ge.p1.and.precip(i,j).lt.p2.and.fmax(i,j).gt.(f1/100.).and.fmax(i,j).lt.(f2/100.)) then 
+# if (vegt(i,j).ge.v1.and.vegt(i,j).le.v2) then
+# if (corr(i,j).ne.-9999.and.dthr(i,j).gt.0.0.and.trad2(i,j).gt.0.0.and.rnet(i,j).gt.0.0.and.fsun(i,j).gt.0.0.and.mlai(i,(dy-j)+1).gt.0.0) then 
+#
+#  write(50,'(f9.3,a1,f9.3,a1,f9.3,a1,f9.3)') fsun(i,j), ',', dthr(i,j)*corr(i,j), ',',  mlai(i,(dy-j)+1), ',', trad2(i,j)
 
         file_data = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
         out.to_csv(file_data , header=True, index=False,columns=["fsun",
@@ -1722,6 +1727,7 @@ def pred_dtradV2(tile,year,doy):
     inUL = [LLlon,URlat]
     ALEXIshape = [3750,3750]
     ALEXIres = [0.004,0.004]
+    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
     #====create processing folder========
     dtrad_path = os.path.join(static_path,'DTRAD_TREES') 
     date = "%d%03d" % (year,doy)
@@ -1862,35 +1868,58 @@ def pred_dtradV2(tile,year,doy):
     bare_pert[bare_pert==-9999.]=0.0
     
     dtrad = np.tile(-9999.,[3750*3750])
+    crop_part = np.tile(-9999.,[3750*3750])
+    forest_part = np.tile(-9999.,[3750*3750])
+    shrub_part = np.tile(-9999.,[3750*3750])
+    bare_part = np.tile(-9999.,[3750*3750])
+    grass_part = np.tile(-9999.,[3750*3750])
     
 
-#    ind1 = ((precip >= 0) & (precip < 600) & (crop1 != -9999.))
-    ind1 = ((precip >= 0) & (precip < 600))
-    crop_part = crop3[ind1]*crop_pert[ind1]
-    forest_part = forest1[ind1]*forest_pert[ind1]
-    shrub_part = shrub1[ind1]*shrub_pert[ind1]
-    bare_part = bare1[ind1]*bare_pert[ind1]
-    grass_part = grass1[ind1]*grass_pert[ind1]
-    dtrad[ind1] = crop_part+forest_part+shrub_part+bare_part+grass_part
+    ind1 = ((precip >= 0) & (precip < 600) & (crop1 != -9999.) &
+            (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
+            (terrain !=-9999.))
+#    ind1 = ((precip >= 0) & (precip < 600))
+    crop_part[ind1] = crop3[ind1]*crop_pert[ind1]
+    forest_part[ind1] = forest1[ind1]*forest_pert[ind1]
+    shrub_part[ind1] = shrub1[ind1]*shrub_pert[ind1]
+    bare_part[ind1] = bare1[ind1]*bare_pert[ind1]
+    grass_part[ind1] = grass1[ind1]*grass_pert[ind1]
+    dtrad1 = crop_part+forest_part+shrub_part+bare_part+grass_part
+#    dtrad1r = dtrad1.reshape([3750,3750])
+#    dtrad_tile_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
+#    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD1_%s_T%03d.tif' % (date,tile))
+#    writeArray2Tiff(dtrad1r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
     
-#    ind2 = ((precip>=600) & (precip <1200) & (crop2 != -9999.))
-    ind2 = ((precip>=600) & (precip <1200))
-    crop_part = crop3[ind2]*crop_pert[ind2]
-    forest_part = forest2[ind2]*forest_pert[ind2]
-    shrub_part = shrub2[ind2]*shrub_pert[ind2]
-    grass_part = grass2[ind2]*grass_pert[ind2]
-    dtrad[ind2] = crop_part+forest_part+shrub_part+grass_part
+    ind2 = ((precip>=600) & (precip <1200) & (crop2 != -9999.) &
+            (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
+            (terrain !=-9999.))
+#    ind2 = ((precip>=600) & (precip <1200))
+    crop_part[ind2] = crop3[ind2]*crop_pert[ind2]
+    forest_part[ind2] = forest2[ind2]*forest_pert[ind2]
+    shrub_part[ind2] = shrub2[ind2]*shrub_pert[ind2]
+    grass_part[ind2] = grass2[ind2]*grass_pert[ind2]
+    dtrad2 = crop_part+forest_part+shrub_part+grass_part
+#    dtrad2r = dtrad2.reshape([3750,3750])
+#    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD2_%s_T%03d.tif' % (date,tile))
+#    writeArray2Tiff(dtrad2r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
 
     
-#    ind3 = ((precip >=1200) & (precip<6000) & (crop3 != -9999.))
-    ind3 = ((precip >=1200) & (precip<6000))
-    crop_part = crop3[ind3]*crop_pert[ind3]
-    forest_part = forest3[ind3]*forest_pert[ind3]
-    grass_part = grass3[ind3]*grass_pert[ind3]
-    dtrad[ind3] = crop_part+forest_part+grass_part
-
+    ind3 = ((precip >=1200) & (precip<6000) & (crop3 != -9999.) &
+            (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
+            (terrain !=-9999.))
+#    ind3 = ((precip >=1200) & (precip<6000))
+    crop_part[ind3] = crop3[ind3]*crop_pert[ind3]
+    forest_part[ind3] = forest3[ind3]*forest_pert[ind3]
+    grass_part[ind3] = grass3[ind3]*grass_pert[ind3]
+    dtrad3 = crop_part+forest_part+grass_part
+#    dtrad3r = dtrad3.reshape([3750,3750])
+#    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD3_%s_T%03d.tif' % (date,tile))
+#    writeArray2Tiff(dtrad3r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
+    dtrad[ind1] = dtrad1[ind1]
+    dtrad[ind2] = dtrad2[ind2]
+    dtrad[ind3] = dtrad3[ind3]
     ind4 = ((dtrad <=2.0) | (dtrad > 40.))
-    dtrad[ind4] = -9999.
+#    dtrad[ind4] = -9999.
     dtrad = np.reshape(dtrad,ALEXIshape)
     
     
@@ -1907,7 +1936,7 @@ def pred_dtradV2(tile,year,doy):
     #====save outputs==========================================================
     dtrad_tile_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
     dtrad_fn = os.path.join(dtrad_tile_path ,'FINAL_DTRAD_%s_T%03d.tif' % (date,tile))
-    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    
     dtrad = np.array(dtrad,dtype='Float32')
     writeArray2Tiff(dtrad,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
 
@@ -2431,19 +2460,19 @@ def runSteps(tile=None,year=None,doy=None):
 
         for tile in tiles:
             createFolders(tile,year,doy)
-        print("gridding VIIRS data-------------------------->")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
-        r = np.array(r)
-        tiles = np.array(tiles)
-        tiles = tiles[r]
-        print("running I5 atmosperic correction------------->")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
+#        print("gridding VIIRS data-------------------------->")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
+#        r = np.array(r)
+#        tiles = np.array(tiles)
+#        tiles = tiles[r]
+#        print("running I5 atmosperic correction------------->")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
         print("estimating dtrad and LST2-------------------->")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(pred_dtradV2)(tile,year,doy) for tile in tiles)
-        print("build RNET trees----------------------------->") # Using MENA region for building trees
-        tree = buildRNETtrees(year,doy)
-        print("estimating RNET ----------------------------->") 
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(getRNETfromTrees)(tile,year,doy,tree) for tile in tiles)
+#        print("build RNET trees----------------------------->") # Using MENA region for building trees
+#        tree = buildRNETtrees(year,doy)
+#        print("estimating RNET ----------------------------->") 
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(getRNETfromTrees)(tile,year,doy,tree) for tile in tiles)
         print("estimating FSUN------------------------------>")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(useTreesV2)(tile,year,doy) for tile in tiles)
         print("making ET------------------------------------>")
