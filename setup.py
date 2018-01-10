@@ -77,6 +77,13 @@ subprocess.call(["scons","-Q","--prefix=%s" % prefix,"install"])
 subprocess.call(["scons","-c"])
 os.chdir(base)
 
+print ("installing make_csv...")
+mkPath = os.path.join(processDir,'source','calc_fsun_tree')
+os.chdir(mkPath)
+subprocess.call(["scons","-Q","--prefix=%s" % prefix,"install"])
+subprocess.call(["scons","-c"])
+os.chdir(base)
+
 print ("installing cubist...")
 mkPath = os.path.join(processDir,'source','Cubist')
 os.chdir(mkPath)

@@ -349,8 +349,8 @@ def get_results_cubist_model(infile,outDF):
                         a1=c1[y].split('"') 
                         a2=c1[y+1].split('"')
                         formula=formula+'+('+str(a2[1])+'*outDF.'+str(a1[1])+'[rule2use]'+')'
-            print(rules)
-            print(formula)
+#            print(rules)
+#            print(formula)
             rule2use=eval('(%s)'% rules)
             var[np.where(rule2use)] = eval('(%s)' % formula)
             var[np.where(mask)] = -9999.
@@ -389,7 +389,10 @@ def processTrees(year=None,doy=None):
         dd = datetime.date.today()+datetime.timedelta(days=-1)
         year = dd.year 
     if doy==None:
-        doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+        if doy>1:
+            doy = (datetime.date.today()-datetime.date(year,1,1)).days-1
+        else:
+            doy = (datetime.date.today()-datetime.date(year,1,1)).days
     year = 2016 # TEMP FOR RT PROCESSING  
         
     dtimedates = np.array(range(1,366,7))
@@ -697,6 +700,125 @@ def processTreesV2(doy):
     
     return [cropTree,grassTree,shrubTree,forestTree,bareTree]
 
+def processFSUNtrees(year,doy):
+    dtimedates = np.array(range(1,366,7))
+    r7day = dtimedates[dtimedates>=doy][0]
+    date = "%d%03d" %(year,r7day)
+    
+    ##===========create dictionary and convert to csv=======
+    #======load 5 km data and subset it======================================== 
+    dthr_fn = glob.glob(os.path.join(static_path,"5KM","DTHR","DTHR_*%03d.tif" % r7day))[0]
+    g = gdal.Open(dthr_fn,GA_ReadOnly)
+    dthr = g.ReadAsArray(3201,901,1600,900)
+    dthr.tofile(os.path.join(fsun_trees_path,"DTHR%s.dat" % date))
+
+ 
+    trad2_fn = glob.glob(os.path.join(static_path,"5KM","TRAD2","TRD2_*%03d.tif" % r7day))[0]
+    g = gdal.Open(trad2_fn,GA_ReadOnly)
+    trad2 = g.ReadAsArray(3201,901,1600,900)
+    trad2.tofile(os.path.join(fsun_trees_path,"TRD2%s.dat" % date))
+    
+    rnet_fn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_*%03d.tif" % r7day))[0]
+    g = gdal.Open(rnet_fn,GA_ReadOnly)
+    rnet = g.ReadAsArray(3201,901,1600,900)
+    rnet.tofile(os.path.join(fsun_trees_path,"RNET%s.dat" % date))
+
+    lai_fn = os.path.join(static_path,"5KM","LAI","MLAI2014%03d.tif" % r7day)  
+    g = gdal.Open(lai_fn,GA_ReadOnly)
+    lai = g.ReadAsArray(3201,901,1600,900)
+    lai = np.flipud(lai)
+    lai.tofile(os.path.join(fsun_trees_path,"MLAI%s.dat" % date))
+ 
+    fsun_fn = glob.glob(os.path.join(static_path,"5KM","FSUN","FSUN_*%03d.tif" % r7day))[0]
+    g = gdal.Open(fsun_fn,GA_ReadOnly)
+    fsun = g.ReadAsArray(3201,901,1600,900)
+    fsun.tofile(os.path.join(fsun_trees_path,"FSUN%s.dat" % date))
+      
+    vegt_fn = os.path.join(static_path,"5KM","VEGT","VEG_TYPE_MODIS.tif")  
+    g = gdal.Open(vegt_fn,GA_ReadOnly)
+    vegt = g.ReadAsArray(3201,901,1600,900)
+    vegt.tofile(os.path.join(fsun_trees_path,"VEGT%s.dat" % date))
+    
+    corr_fn = glob.glob(os.path.join(static_path,"5KM","CORR","DTHR_CORR_DTLOC150_SEP17_FINAL_*%s.tif" % r7day))[0]
+    g = gdal.Open(corr_fn,GA_ReadOnly)
+    corr = g.ReadAsArray(3201,901,1600,900)
+    corr.tofile(os.path.join(fsun_trees_path,"CORR%s.dat" % date))
+    year = 2016
+    fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
+    #======build fsun trees===============================================
+    s_doy = doy
+    e_doy = doy
+    s_year = year
+    e_year = year
+    #==========cropland===================================================
+    lc = "crop"
+    print "cropland"
+    
+    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+    
+    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 12 12" % (s_year, e_year, s_doy,e_doy), shell=True)
+    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+    shutil.copyfile(data_fn,data_doy_fn)
+    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+    get_trees_fstem_namesV2(file_names)
+    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+    
+    #==========grassland===================================================
+    lc = "grass"
+    print "grassland"
+    
+    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+    
+    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 11 11" % (s_year, e_year, s_doy,e_doy), shell=True)
+    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+    shutil.copyfile(data_fn,data_doy_fn)
+    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+    get_trees_fstem_namesV2(file_names)
+    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+    
+    #==========shrubland===================================================
+    lc = "shrub"
+    print "shrubland"
+    
+    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+    
+    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 9 10" % (s_year, e_year, s_doy,e_doy), shell=True)
+    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+    shutil.copyfile(data_fn,data_doy_fn)
+    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+    get_trees_fstem_namesV2(file_names)
+    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+    
+    #==========forest===================================================
+    lc = "forest"
+    print "forest"
+    
+    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+    
+    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 1 8" % (s_year, e_year, s_doy,e_doy), shell=True)
+    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+    shutil.copyfile(data_fn,data_doy_fn)
+    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+    get_trees_fstem_namesV2(file_names)
+    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+    
+    #==========barren===================================================
+    lc = "bare"
+    print "barren"
+    
+    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+    
+    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 13 14" % (s_year, e_year, s_doy,e_doy), shell=True)
+    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+    shutil.copyfile(data_fn,data_doy_fn)
+    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+    get_trees_fstem_namesV2(file_names)
+    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
     
 def gridMergePythonEWA(tile,year,doy):
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
@@ -1755,195 +1877,196 @@ def pred_dtradV2(tile,year,doy):
     lc_forest_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_forest_T%03d.tif' % tile)
     lc_shrub_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_shrub_T%03d.tif' % tile)
     lc_bare_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_bare_T%03d.tif' % tile)
-
-#    convertBin2tif(daylst_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
-    g = gdal.Open(daylst_fn)
-    daylst = g.ReadAsArray()
-    daylst = np.reshape(daylst,[daylst.size])
-
-#    convertBin2tif(nightlst_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
-    g = gdal.Open(nightlst_fn)
-    nightlst = g.ReadAsArray()
-    nightlst = np.reshape(nightlst,[nightlst.size])
-
-    g = gdal.Open(precip_fn)
-    precip = g.ReadAsArray()
-    precip = np.reshape(precip,[precip.size])
-
-    g = gdal.Open(fmax_fn)
-    fmax = g.ReadAsArray()
-    fmax = np.reshape(fmax,[fmax.size])
-
-    g = gdal.Open(terrain_fn)
-    terrain = g.ReadAsArray()
-    terrain = np.reshape(terrain,[terrain.size])
-    
-    g = gdal.Open(sd_fn)
-    sd = g.ReadAsArray()
-    sd = np.reshape(sd,[sd.size])
-
-#    convertBin2tif(lai_fn[:-3]+'dat',inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32,True)
-    g = gdal.Open(lai_fn)
-    lai = g.ReadAsArray()
-    lai = np.reshape(lai,[lai.size])
-    
-#    convertBin2tif(dtime_fn[:-3]+'dat',inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32,True)
-    g = gdal.Open(dtime_fn)
-    dtime = g.ReadAsArray()
-    dtime = np.reshape(dtime,[dtime.size])
-    
-    daynight = daylst-nightlst
-    outDict = {"daynight":daynight,"day":daylst,"night":nightlst,
-               "sd":sd,"lai":lai,"dtime":dtime,"precip":precip,
-               "fmax":fmax,"terrain":terrain}
-    outDF = pd.DataFrame.from_dict(outDict)
-
-    #======read cubist models built by Chris Hain==============================
-    #----crop1------
-    crop1_model_fn = os.path.join(dtrad_path,"crop1.model")
-    crop1 = get_results_cubist_model(crop1_model_fn,outDF)
-    #----crop2------
-    crop2_model_fn = os.path.join(dtrad_path,"crop2.model")
-    crop2 = get_results_cubist_model(crop2_model_fn,outDF)
-    #----crop3------
-    crop3_model_fn = os.path.join(dtrad_path,"crop3.model")
-    crop3 = get_results_cubist_model(crop3_model_fn,outDF)
-    
-    #----grass1------
-    grass1_model_fn = os.path.join(dtrad_path,"grass1.model")
-    grass1 = get_results_cubist_model(grass1_model_fn,outDF)
-    #----grass2------
-    grass2_model_fn = os.path.join(dtrad_path,"grass2.model")
-    grass2 = get_results_cubist_model(grass2_model_fn,outDF)
-    #----grass3------
-    grass3_model_fn = os.path.join(dtrad_path,"grass3.model")
-    grass3 = get_results_cubist_model(grass3_model_fn,outDF)
-    
-    #----forest1------
-    forest1_model_fn = os.path.join(dtrad_path,"forest1.model")
-    forest1 = get_results_cubist_model(forest1_model_fn,outDF)    
-    #----forest2------
-    forest2_model_fn = os.path.join(dtrad_path,"forest2.model")
-    forest2 = get_results_cubist_model(forest2_model_fn,outDF)    
-    #----forest3------
-    forest3_model_fn = os.path.join(dtrad_path,"forest3.model")
-    forest3 = get_results_cubist_model(forest3_model_fn,outDF)
-    
-    #----shrub1------
-    shrub1_model_fn = os.path.join(dtrad_path,"shrub1.model")
-    shrub1 = get_results_cubist_model(shrub1_model_fn,outDF)
-    #----shrub2------
-    shrub2_model_fn = os.path.join(dtrad_path,"shrub2.model")
-    shrub2 = get_results_cubist_model(shrub2_model_fn,outDF)
-    
-    #----bare1------
-    bare1_model_fn = os.path.join(dtrad_path,"bare1.model")
-    bare1 = get_results_cubist_model(bare1_model_fn,outDF)
-    
-    #====get dtrad============================================================
-    
-    g = gdal.Open(lc_crop_pert_fn)
-    crop_pert = g.ReadAsArray()
-    crop_pert = np.reshape(crop_pert,[crop_pert.size])
-    crop_pert[crop_pert==-9999.]=0.0
-    
-    g = gdal.Open(lc_grass_pert_fn)
-    grass_pert = g.ReadAsArray()
-    grass_pert = np.reshape(grass_pert,[grass_pert.size])
-    grass_pert[grass_pert==-9999.]=0.0
-    
-    g = gdal.Open(lc_forest_pert_fn)
-    forest_pert = g.ReadAsArray()
-    forest_pert = np.reshape(forest_pert,[forest_pert.size])
-    forest_pert[forest_pert==-9999.]=0.0
-    
-    g = gdal.Open(lc_shrub_pert_fn)
-    shrub_pert = g.ReadAsArray()
-    shrub_pert = np.reshape(shrub_pert,[shrub_pert.size])
-    shrub_pert[shrub_pert==-9999.]=0.0
-    
-    g = gdal.Open(lc_bare_pert_fn)
-    bare_pert = g.ReadAsArray()
-    bare_pert = np.reshape(bare_pert,[bare_pert.size])
-    bare_pert[bare_pert==-9999.]=0.0
-    
-    dtrad = np.tile(-9999.,[3750*3750])
-    crop_part = np.tile(-9999.,[3750*3750])
-    forest_part = np.tile(-9999.,[3750*3750])
-    shrub_part = np.tile(-9999.,[3750*3750])
-    bare_part = np.tile(-9999.,[3750*3750])
-    grass_part = np.tile(-9999.,[3750*3750])
-    
-
-    ind1 = ((precip >= 0) & (precip < 600) & (crop1 != -9999.) &
-            (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
-            (terrain !=-9999.))
-#    ind1 = ((precip >= 0) & (precip < 600))
-    crop_part[ind1] = crop3[ind1]*crop_pert[ind1]
-    forest_part[ind1] = forest1[ind1]*forest_pert[ind1]
-    shrub_part[ind1] = shrub1[ind1]*shrub_pert[ind1]
-    bare_part[ind1] = bare1[ind1]*bare_pert[ind1]
-    grass_part[ind1] = grass1[ind1]*grass_pert[ind1]
-    dtrad1 = crop_part+forest_part+shrub_part+bare_part+grass_part
-#    dtrad1r = dtrad1.reshape([3750,3750])
-#    dtrad_tile_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
-#    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD1_%s_T%03d.tif' % (date,tile))
-#    writeArray2Tiff(dtrad1r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
-    
-    ind2 = ((precip>=600) & (precip <1200) & (crop2 != -9999.) &
-            (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
-            (terrain !=-9999.))
-#    ind2 = ((precip>=600) & (precip <1200))
-    crop_part[ind2] = crop3[ind2]*crop_pert[ind2]
-    forest_part[ind2] = forest2[ind2]*forest_pert[ind2]
-    shrub_part[ind2] = shrub2[ind2]*shrub_pert[ind2]
-    grass_part[ind2] = grass2[ind2]*grass_pert[ind2]
-    dtrad2 = crop_part+forest_part+shrub_part+grass_part
-#    dtrad2r = dtrad2.reshape([3750,3750])
-#    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD2_%s_T%03d.tif' % (date,tile))
-#    writeArray2Tiff(dtrad2r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
-
-    
-    ind3 = ((precip >=1200) & (precip<6000) & (crop3 != -9999.) &
-            (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
-            (terrain !=-9999.))
-#    ind3 = ((precip >=1200) & (precip<6000))
-    crop_part[ind3] = crop3[ind3]*crop_pert[ind3]
-    forest_part[ind3] = forest3[ind3]*forest_pert[ind3]
-    grass_part[ind3] = grass3[ind3]*grass_pert[ind3]
-    dtrad3 = crop_part+forest_part+grass_part
-#    dtrad3r = dtrad3.reshape([3750,3750])
-#    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD3_%s_T%03d.tif' % (date,tile))
-#    writeArray2Tiff(dtrad3r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
-    dtrad[ind1] = dtrad1[ind1]
-    dtrad[ind2] = dtrad2[ind2]
-    dtrad[ind3] = dtrad3[ind3]
-    ind4 = ((dtrad <=2.0) | (dtrad > 40.))
-#    dtrad[ind4] = -9999.
-    dtrad = np.reshape(dtrad,ALEXIshape)
-    
-    
-    #======calcaulate lst2=====================================================
-    c1=-9.6463
-    c1x1=-0.183506 # DAY-NIGHT
-    c1x2=1.04281    # DAY
-    c1x3=-0.0529513    
-    lst2 = np.tile(-9999.,[3750*3750])
-    
-    ind = ((daynight > 0.0) & (daylst > 0.0) & (nightlst > 0.0 ) & (lai >= 0.0))
-    lst2[ind] = c1+(c1x1*daynight[ind])+(c1x2*daylst[ind])+(c1x3*lai[ind])
-    lst2 = np.reshape(lst2,ALEXIshape)
-    #====save outputs==========================================================
     dtrad_tile_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
     dtrad_fn = os.path.join(dtrad_tile_path ,'FINAL_DTRAD_%s_T%03d.tif' % (date,tile))
+    if not os.path.exists(dtrad_fn):
     
-    dtrad = np.array(dtrad,dtype='Float32')
-    writeArray2Tiff(dtrad,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
-
-    lst2_tile_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
-    lst2_fn = os.path.join(lst2_tile_path,'FINAL_DAY_LST_TIME2_%s_T%03d.tif' % (date,tile))
-    lst2 = np.array(lst2,dtype='Float32')
-    writeArray2Tiff(lst2,ALEXIres,inUL,inProjection,lst2_fn,gdal.GDT_Float32)    
+    #    convertBin2tif(daylst_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+        g = gdal.Open(daylst_fn)
+        daylst = g.ReadAsArray()
+        daylst = np.reshape(daylst,[daylst.size])
+    
+    #    convertBin2tif(nightlst_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+        g = gdal.Open(nightlst_fn)
+        nightlst = g.ReadAsArray()
+        nightlst = np.reshape(nightlst,[nightlst.size])
+    
+        g = gdal.Open(precip_fn)
+        precip = g.ReadAsArray()
+        precip = np.reshape(precip,[precip.size])
+    
+        g = gdal.Open(fmax_fn)
+        fmax = g.ReadAsArray()
+        fmax = np.reshape(fmax,[fmax.size])
+    
+        g = gdal.Open(terrain_fn)
+        terrain = g.ReadAsArray()
+        terrain = np.reshape(terrain,[terrain.size])
+        
+        g = gdal.Open(sd_fn)
+        sd = g.ReadAsArray()
+        sd = np.reshape(sd,[sd.size])
+    
+    #    convertBin2tif(lai_fn[:-3]+'dat',inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32,True)
+        g = gdal.Open(lai_fn)
+        lai = g.ReadAsArray()
+        lai = np.reshape(lai,[lai.size])
+        
+    #    convertBin2tif(dtime_fn[:-3]+'dat',inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32,True)
+        g = gdal.Open(dtime_fn)
+        dtime = g.ReadAsArray()
+        dtime = np.reshape(dtime,[dtime.size])
+        
+        daynight = daylst-nightlst
+        outDict = {"daynight":daynight,"day":daylst,"night":nightlst,
+                   "sd":sd,"lai":lai,"dtime":dtime,"precip":precip,
+                   "fmax":fmax,"terrain":terrain}
+        outDF = pd.DataFrame.from_dict(outDict)
+    
+        #======read cubist models built by Chris Hain==============================
+        #----crop1------
+        crop1_model_fn = os.path.join(dtrad_path,"crop1.model")
+        crop1 = get_results_cubist_model(crop1_model_fn,outDF)
+        #----crop2------
+        crop2_model_fn = os.path.join(dtrad_path,"crop2.model")
+        crop2 = get_results_cubist_model(crop2_model_fn,outDF)
+        #----crop3------
+        crop3_model_fn = os.path.join(dtrad_path,"crop3.model")
+        crop3 = get_results_cubist_model(crop3_model_fn,outDF)
+        
+        #----grass1------
+        grass1_model_fn = os.path.join(dtrad_path,"grass1.model")
+        grass1 = get_results_cubist_model(grass1_model_fn,outDF)
+        #----grass2------
+        grass2_model_fn = os.path.join(dtrad_path,"grass2.model")
+        grass2 = get_results_cubist_model(grass2_model_fn,outDF)
+        #----grass3------
+        grass3_model_fn = os.path.join(dtrad_path,"grass3.model")
+        grass3 = get_results_cubist_model(grass3_model_fn,outDF)
+        
+        #----forest1------
+        forest1_model_fn = os.path.join(dtrad_path,"forest1.model")
+        forest1 = get_results_cubist_model(forest1_model_fn,outDF)    
+        #----forest2------
+        forest2_model_fn = os.path.join(dtrad_path,"forest2.model")
+        forest2 = get_results_cubist_model(forest2_model_fn,outDF)    
+        #----forest3------
+        forest3_model_fn = os.path.join(dtrad_path,"forest3.model")
+        forest3 = get_results_cubist_model(forest3_model_fn,outDF)
+        
+        #----shrub1------
+        shrub1_model_fn = os.path.join(dtrad_path,"shrub1.model")
+        shrub1 = get_results_cubist_model(shrub1_model_fn,outDF)
+        #----shrub2------
+        shrub2_model_fn = os.path.join(dtrad_path,"shrub2.model")
+        shrub2 = get_results_cubist_model(shrub2_model_fn,outDF)
+        
+        #----bare1------
+        bare1_model_fn = os.path.join(dtrad_path,"bare1.model")
+        bare1 = get_results_cubist_model(bare1_model_fn,outDF)
+        
+        #====get dtrad============================================================
+        
+        g = gdal.Open(lc_crop_pert_fn)
+        crop_pert = g.ReadAsArray()
+        crop_pert = np.reshape(crop_pert,[crop_pert.size])
+        crop_pert[crop_pert==-9999.]=0.0
+        
+        g = gdal.Open(lc_grass_pert_fn)
+        grass_pert = g.ReadAsArray()
+        grass_pert = np.reshape(grass_pert,[grass_pert.size])
+        grass_pert[grass_pert==-9999.]=0.0
+        
+        g = gdal.Open(lc_forest_pert_fn)
+        forest_pert = g.ReadAsArray()
+        forest_pert = np.reshape(forest_pert,[forest_pert.size])
+        forest_pert[forest_pert==-9999.]=0.0
+        
+        g = gdal.Open(lc_shrub_pert_fn)
+        shrub_pert = g.ReadAsArray()
+        shrub_pert = np.reshape(shrub_pert,[shrub_pert.size])
+        shrub_pert[shrub_pert==-9999.]=0.0
+        
+        g = gdal.Open(lc_bare_pert_fn)
+        bare_pert = g.ReadAsArray()
+        bare_pert = np.reshape(bare_pert,[bare_pert.size])
+        bare_pert[bare_pert==-9999.]=0.0
+        
+        dtrad = np.tile(-9999.,[3750*3750])
+        crop_part = np.tile(-9999.,[3750*3750])
+        forest_part = np.tile(-9999.,[3750*3750])
+        shrub_part = np.tile(-9999.,[3750*3750])
+        bare_part = np.tile(-9999.,[3750*3750])
+        grass_part = np.tile(-9999.,[3750*3750])
+        
+    
+        ind1 = ((precip >= 0) & (precip < 600) & (crop1 != -9999.) &
+                (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
+                (terrain !=-9999.))
+    #    ind1 = ((precip >= 0) & (precip < 600))
+        crop_part[ind1] = crop3[ind1]*crop_pert[ind1]
+        forest_part[ind1] = forest1[ind1]*forest_pert[ind1]
+        shrub_part[ind1] = shrub1[ind1]*shrub_pert[ind1]
+        bare_part[ind1] = bare1[ind1]*bare_pert[ind1]
+        grass_part[ind1] = grass1[ind1]*grass_pert[ind1]
+        dtrad1 = crop_part+forest_part+shrub_part+bare_part+grass_part
+    #    dtrad1r = dtrad1.reshape([3750,3750])
+    #    dtrad_tile_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
+    #    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD1_%s_T%03d.tif' % (date,tile))
+    #    writeArray2Tiff(dtrad1r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
+        
+        ind2 = ((precip>=600) & (precip <1200) & (crop2 != -9999.) &
+                (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
+                (terrain !=-9999.))
+    #    ind2 = ((precip>=600) & (precip <1200))
+        crop_part[ind2] = crop3[ind2]*crop_pert[ind2]
+        forest_part[ind2] = forest2[ind2]*forest_pert[ind2]
+        shrub_part[ind2] = shrub2[ind2]*shrub_pert[ind2]
+        grass_part[ind2] = grass2[ind2]*grass_pert[ind2]
+        dtrad2 = crop_part+forest_part+shrub_part+grass_part
+    #    dtrad2r = dtrad2.reshape([3750,3750])
+    #    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD2_%s_T%03d.tif' % (date,tile))
+    #    writeArray2Tiff(dtrad2r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
+    
+        
+        ind3 = ((precip >=1200) & (precip<6000) & (crop3 != -9999.) &
+                (daylst !=-9999.) & (nightlst !=-9999.) & (lai !=-9999.) &
+                (terrain !=-9999.))
+    #    ind3 = ((precip >=1200) & (precip<6000))
+        crop_part[ind3] = crop3[ind3]*crop_pert[ind3]
+        forest_part[ind3] = forest3[ind3]*forest_pert[ind3]
+        grass_part[ind3] = grass3[ind3]*grass_pert[ind3]
+        dtrad3 = crop_part+forest_part+grass_part
+    #    dtrad3r = dtrad3.reshape([3750,3750])
+    #    dtrad_fn = os.path.join(dtrad_tile_path ,'DTRAD3_%s_T%03d.tif' % (date,tile))
+    #    writeArray2Tiff(dtrad3r,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
+        dtrad[ind1] = dtrad1[ind1]
+        dtrad[ind2] = dtrad2[ind2]
+        dtrad[ind3] = dtrad3[ind3]
+        ind4 = ((dtrad <=2.0) | (dtrad > 40.))
+    #    dtrad[ind4] = -9999.
+        dtrad = np.reshape(dtrad,ALEXIshape)
+        
+        
+        #======calcaulate lst2=====================================================
+        c1=-9.6463
+        c1x1=-0.183506 # DAY-NIGHT
+        c1x2=1.04281    # DAY
+        c1x3=-0.0529513    
+        lst2 = np.tile(-9999.,[3750*3750])
+        
+        ind = ((daynight > 0.0) & (daylst > 0.0) & (nightlst > 0.0 ) & (lai >= 0.0))
+        lst2[ind] = c1+(c1x1*daynight[ind])+(c1x2*daylst[ind])+(c1x3*lai[ind])
+        lst2 = np.reshape(lst2,ALEXIshape)
+        #====save outputs==========================================================
+        
+        dtrad = np.array(dtrad,dtype='Float32')
+        writeArray2Tiff(dtrad,ALEXIres,inUL,inProjection,dtrad_fn,gdal.GDT_Float32)
+    
+        lst2_tile_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
+        lst2_fn = os.path.join(lst2_tile_path,'FINAL_DAY_LST_TIME2_%s_T%03d.tif' % (date,tile))
+        lst2 = np.array(lst2,dtype='Float32')
+        writeArray2Tiff(lst2,ALEXIres,inUL,inProjection,lst2_fn,gdal.GDT_Float32)    
     
 def buildRNETtrees(year,doy):
     dtimedates = np.array(range(1,366,7))
@@ -2473,20 +2596,20 @@ def runSteps(tile=None,year=None,doy=None):
 #        tree = buildRNETtrees(year,doy)
 #        print("estimating RNET ----------------------------->") 
 #        r = Parallel(n_jobs=-1, verbose=5)(delayed(getRNETfromTrees)(tile,year,doy,tree) for tile in tiles)
-        print("estimating FSUN------------------------------>")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(useTreesV2)(tile,year,doy) for tile in tiles)
-        print("making ET------------------------------------>")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(getDailyET)(tile,year,doy) for tile in tiles)
-#        cleanup(year,doy,tiles)
-        print("making regional mosaic----------------------->")
-        et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
-        date = '%d%03d' % (year,doy)
-        tifs = glob.glob(os.path.join(et_path,"*.tif"))
-        et_vrt = os.path.join(et_path,'FINAL_EDAY_%s_mosaic.vrt' % date)
-        et_tif = os.path.join(et_path,'FINAL_EDAY_%s_mosaic.tif' % date)
-        outds = gdal.BuildVRT(et_vrt, tifs, options=gdal.BuildVRTOptions(srcNodata=-9999.))
-        outds = gdal.Translate(et_tif, outds)
-        outds = None
+#        print("estimating FSUN------------------------------>")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(useTreesV2)(tile,year,doy) for tile in tiles)
+#        print("making ET------------------------------------>")
+#        r = Parallel(n_jobs=-1, verbose=5)(delayed(getDailyET)(tile,year,doy) for tile in tiles)
+##        cleanup(year,doy,tiles)
+#        print("making regional mosaic----------------------->")
+#        et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
+#        date = '%d%03d' % (year,doy)
+#        tifs = glob.glob(os.path.join(et_path,"*.tif"))
+#        et_vrt = os.path.join(et_path,'FINAL_EDAY_%s_mosaic.vrt' % date)
+#        et_tif = os.path.join(et_path,'FINAL_EDAY_%s_mosaic.tif' % date)
+#        outds = gdal.BuildVRT(et_vrt, tifs, options=gdal.BuildVRTOptions(srcNodata=-9999.))
+#        outds = gdal.Translate(et_tif, outds)
+#        outds = None
         print("============FINISHED!=========================")
     
 
@@ -2512,8 +2635,9 @@ def main():
         doy = (datetime.date.today()-datetime.date(year,1,1)).days
         if buildTrees[0] == 'True':
             print("building regression trees from 5KM data---------->")
-            processTreesV2(doy)
-        runSteps(tiles)   
+#            processTreesV2(doy)
+            processFSUNtrees(year,doy)
+#        runSteps(tiles)   
         end = timer.time()
         print("program duration: %f minutes" % ((end - start)/60.))
     else:
@@ -2523,8 +2647,9 @@ def main():
             print("processing day:%d of year:%d" % (doy,year))
             if buildTrees[0] =='True':
                 print("building regression trees from 5KM data---------->")
-                processTreesV2(doy)
-            runSteps(tiles,year,doy)
+                processFSUNtrees(year,doy)
+#                processTreesV2(doy)
+#            runSteps(tiles,year,doy)
         end = timer.time()
         print("program duration: %f minutes" % ((end - start)/60.))
 
