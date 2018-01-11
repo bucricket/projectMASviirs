@@ -720,10 +720,10 @@ def processFSUNtrees(year,doy):
     trad2 = g.ReadAsArray(3201,901,1600,900)
     trad2.tofile(os.path.join(fsun_trees_path,"TRD2%s.dat" % date))
     
-    rnet_fn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_*%03d.tif" % r7day))[0]
-    g = gdal.Open(rnet_fn,GA_ReadOnly)
-    rnet = g.ReadAsArray(3201,901,1600,900)
-    rnet.tofile(os.path.join(fsun_trees_path,"RNET%s.dat" % date))
+#    rnet_fn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_*%03d.tif" % r7day))[0]
+#    g = gdal.Open(rnet_fn,GA_ReadOnly)
+#    rnet = g.ReadAsArray(3201,901,1600,900)
+#    rnet.tofile(os.path.join(fsun_trees_path,"RNET%s.dat" % date))
 
     lai_fn = os.path.join(static_path,"5KM","LAI","MLAI2014%03d.tif" % r7day)  
     g = gdal.Open(lai_fn,GA_ReadOnly)

@@ -52,28 +52,24 @@ do k = 1, ndays
  yyyyddd=iyear*1000+iday
  write(i1,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/PROCESSING/FSUN_TREES/DTHR',yyyyddd,'.dat'
  write(i2,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/PROCESSING/FSUN_TREES/TRD2',yyyyddd,'.dat'
- write(i3,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/PROCESSING/FSUN_TREES/RNET',yyyyddd,'.dat'
  write(i4,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/FSUN_TREES/MLAI',yyyyddd,'.dat'
  write(i5,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/FSUN_TREES/FSUN',yyyyddd,'.dat'
  write(i6,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/FSUN_TREES/VEGT',yyyyddd,'.dat'
  write(i7,'(a,i7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/FSUN_TREES/CORR',yyyyddd,'.dat'
  open(10,file=i1,form='unformatted',access='direct',recl=dx*dy*4)
  open(11,file=i2,form='unformatted',access='direct',recl=dx*dy*4)
- open(12,file=i3,form='unformatted',access='direct',recl=dx*dy*4)
  open(13,file=i4,form='unformatted',access='direct',recl=dx*dy*4)
  open(14,file=i5,form='unformatted',access='direct',recl=dx*dy*4)
  open(15,file=i6,form='unformatted',access='direct',recl=dx*dy*4)
  open(16,file=i7,form='unformatted',access='direct',recl=dx*dy*4)
  read(10,rec=1) dthr
  read(11,rec=1) trad2 
- read(12,rec=1) rnet 
  read(13,rec=1) mlai 
  read(14,rec=1) fsun 
  read(15,rec=1) vegt
  read(16,rec=1) corr
  close(10)
  close(11)
- close(12)
  close(13)
  close(14)
  close(15)
@@ -89,7 +85,7 @@ do i = 1, dx
  fmax(i,j) = 1.0-exp(-0.5*fmax(i,j))
  if (precip(i,j).ge.p1.and.precip(i,j).lt.p2.and.fmax(i,j).gt.(f1/100.).and.fmax(i,j).lt.(f2/100.)) then 
  if (vegt(i,j).ge.v1.and.vegt(i,j).le.v2) then
- if (corr(i,j).ne.-9999.and.dthr(i,j).gt.0.0.and.trad2(i,j).gt.0.0.and.rnet(i,j).gt.0.0.and.fsun(i,j).gt.0.0.and.mlai(i,(dy-j)+1).gt.0.0) then 
+ if (corr(i,j).ne.-9999.and.dthr(i,j).gt.0.0.and.trad2(i,j).gt.0.0.and.fsun(i,j).gt.0.0.and.mlai(i,(dy-j)+1).gt.0.0) then 
 !  write(50,'(f9.3,a1,f9.3,a1,f9.3,a1,f9.3,a1,f9.3)') fsun(i,j), ',', dthr(i,j), ',',  rnet(i,j)/dthr(i,j), ',',  rnet(i,j),',', mlai(i,(dy-j)+1)
   write(50,'(f9.3,a1,f9.3,a1,f9.3,a1,f9.3)') fsun(i,j), ',', dthr(i,j)*corr(i,j), ',',  mlai(i,(dy-j)+1), ',', trad2(i,j)
  endif
