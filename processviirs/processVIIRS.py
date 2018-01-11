@@ -745,7 +745,6 @@ def processFSUNtrees(year,doy):
     g = gdal.Open(corr_fn,GA_ReadOnly)
     corr = g.ReadAsArray(3201,901,1600,900)
     corr.tofile(os.path.join(fsun_trees_path,"CORR%s.dat" % date))
-    year = 2016
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
     #======build fsun trees===============================================
     s_doy = r7day
