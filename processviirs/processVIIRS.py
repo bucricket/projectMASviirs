@@ -2642,7 +2642,7 @@ def main():
             print("building regression trees from 5KM data---------->")
 #            processTreesV2(doy)
             processFSUNtrees(year,doy)
-#        runSteps(tiles)   
+        runSteps(tiles)   
         end = timer.time()
         print("program duration: %f minutes" % ((end - start)/60.))
     else:
@@ -2654,7 +2654,7 @@ def main():
                 print("building regression trees from 5KM data---------->")
                 processFSUNtrees(year,doy)
 #                processTreesV2(doy)
-#            runSteps(tiles,year,doy)
+            runSteps(tiles,year,doy)
         end = timer.time()
         print("program duration: %f minutes" % ((end - start)/60.))
 
