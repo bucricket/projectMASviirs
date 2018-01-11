@@ -25,7 +25,10 @@ env.Append(F90FLAGS = ['-ffree-line-length-512'])
 # The next line of code is an array of the source files names used in the program.
 # The next line is the actual code that links the executable. env.Program is generates an executable.
 
-final_dtrad_grass = env.Program(target='make_csv', source= 'make_csv.f90')
+make_csv = env.Program(target='make_csv', source= 'make_csv.f90')
+
+env.Install(binPath, make_csv)
+env.Alias('install', binPath)
 
 
 
