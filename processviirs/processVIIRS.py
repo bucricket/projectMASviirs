@@ -705,121 +705,124 @@ def processFSUNtrees(year,doy):
     r7day = dtimedates[dtimedates>=doy][0]
     if r7day == 1:
         r7day = 365
-    date = "%d%03d" %(year,r7day)
+    fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')   
+    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % ('crop',r7day))   
+    if not os.path.exists(cubist_name):
+        date = "%d%03d" %(year,r7day)
+        
+        ##===========create dictionary and convert to csv=======
+        #======load 5 km data and subset it======================================== 
+        dthr_fn = glob.glob(os.path.join(static_path,"5KM","DTHR","DTHR_*%03d.tif" % r7day))[0]
+        g = gdal.Open(dthr_fn,GA_ReadOnly)
+        dthr = g.ReadAsArray(3201,901,1600,900)
+        dthr.tofile(os.path.join(fsun_trees_path,"DTHR%s.dat" % date))
     
-    ##===========create dictionary and convert to csv=======
-    #======load 5 km data and subset it======================================== 
-    dthr_fn = glob.glob(os.path.join(static_path,"5KM","DTHR","DTHR_*%03d.tif" % r7day))[0]
-    g = gdal.Open(dthr_fn,GA_ReadOnly)
-    dthr = g.ReadAsArray(3201,901,1600,900)
-    dthr.tofile(os.path.join(fsun_trees_path,"DTHR%s.dat" % date))
-
- 
-    trad2_fn = glob.glob(os.path.join(static_path,"5KM","TRAD2","TRD2_*%03d.tif" % r7day))[0]
-    g = gdal.Open(trad2_fn,GA_ReadOnly)
-    trad2 = g.ReadAsArray(3201,901,1600,900)
-    trad2.tofile(os.path.join(fsun_trees_path,"TRD2%s.dat" % date))
+     
+        trad2_fn = glob.glob(os.path.join(static_path,"5KM","TRAD2","TRD2_*%03d.tif" % r7day))[0]
+        g = gdal.Open(trad2_fn,GA_ReadOnly)
+        trad2 = g.ReadAsArray(3201,901,1600,900)
+        trad2.tofile(os.path.join(fsun_trees_path,"TRD2%s.dat" % date))
+        
+    #    rnet_fn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_*%03d.tif" % r7day))[0]
+    #    g = gdal.Open(rnet_fn,GA_ReadOnly)
+    #    rnet = g.ReadAsArray(3201,901,1600,900)
+    #    rnet.tofile(os.path.join(fsun_trees_path,"RNET%s.dat" % date))
     
-#    rnet_fn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_*%03d.tif" % r7day))[0]
-#    g = gdal.Open(rnet_fn,GA_ReadOnly)
-#    rnet = g.ReadAsArray(3201,901,1600,900)
-#    rnet.tofile(os.path.join(fsun_trees_path,"RNET%s.dat" % date))
-
-    lai_fn = os.path.join(static_path,"5KM","LAI","MLAI2014%03d.tif" % r7day)  
-    g = gdal.Open(lai_fn,GA_ReadOnly)
-    lai = g.ReadAsArray(3201,901,1600,900)
-    lai = np.flipud(lai)
-    lai.tofile(os.path.join(fsun_trees_path,"MLAI%s.dat" % date))
- 
-    fsun_fn = glob.glob(os.path.join(static_path,"5KM","FSUN","FSUN_*%03d.tif" % r7day))[0]
-    g = gdal.Open(fsun_fn,GA_ReadOnly)
-    fsun = g.ReadAsArray(3201,901,1600,900)
-    fsun.tofile(os.path.join(fsun_trees_path,"FSUN%s.dat" % date))
-      
-    vegt_fn = os.path.join(static_path,"5KM","VEGT","VEG_TYPE_MODIS.tif")  
-    g = gdal.Open(vegt_fn,GA_ReadOnly)
-    vegt = g.ReadAsArray(3201,901,1600,900)
-    vegt.tofile(os.path.join(fsun_trees_path,"VEGT%s.dat" % date))
-    
-    corr_fn = glob.glob(os.path.join(static_path,"5KM","CORR","DTHR_CORR_DTLOC150_SEP17_FINAL_*%s.tif" % r7day))[0]
-    g = gdal.Open(corr_fn,GA_ReadOnly)
-    corr = g.ReadAsArray(3201,901,1600,900)
-    corr.tofile(os.path.join(fsun_trees_path,"CORR%s.dat" % date))
-    fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
-    #======build fsun trees===============================================
-    s_doy = r7day
-    e_doy = r7day
-    s_year = year
-    e_year = year
-    #==========cropland===================================================
-    lc = "crop"
-    print "cropland"
-    
-    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
-    
-    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 12 12" % (s_year, e_year, s_doy,e_doy), shell=True)
-    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
-    shutil.copyfile(data_fn,data_doy_fn)
-    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
-    get_trees_fstem_namesV2(file_names)
-    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
-    
-    #==========grassland===================================================
-    lc = "grass"
-    print "grassland"
-    
-    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
-    
-    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 11 11" % (s_year, e_year, s_doy,e_doy), shell=True)
-    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
-    shutil.copyfile(data_fn,data_doy_fn)
-    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
-    get_trees_fstem_namesV2(file_names)
-    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
-    
-    #==========shrubland===================================================
-    lc = "shrub"
-    print "shrubland"
-    
-    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
-    
-    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 9 10" % (s_year, e_year, s_doy,e_doy), shell=True)
-    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
-    shutil.copyfile(data_fn,data_doy_fn)
-    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
-    get_trees_fstem_namesV2(file_names)
-    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
-    
-    #==========forest===================================================
-    lc = "forest"
-    print "forest"
-    
-    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
-    
-    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 1 8" % (s_year, e_year, s_doy,e_doy), shell=True)
-    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
-    shutil.copyfile(data_fn,data_doy_fn)
-    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
-    get_trees_fstem_namesV2(file_names)
-    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
-    
-    #==========barren===================================================
-    lc = "bare"
-    print "barren"
-    
-    cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
-    
-    out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 13 14" % (s_year, e_year, s_doy,e_doy), shell=True)
-    data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-    data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
-    shutil.copyfile(data_fn,data_doy_fn)
-    file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
-    get_trees_fstem_namesV2(file_names)
-    out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+        lai_fn = os.path.join(static_path,"5KM","LAI","MLAI2014%03d.tif" % r7day)  
+        g = gdal.Open(lai_fn,GA_ReadOnly)
+        lai = g.ReadAsArray(3201,901,1600,900)
+        lai = np.flipud(lai)
+        lai.tofile(os.path.join(fsun_trees_path,"MLAI%s.dat" % date))
+     
+        fsun_fn = glob.glob(os.path.join(static_path,"5KM","FSUN","FSUN_*%03d.tif" % r7day))[0]
+        g = gdal.Open(fsun_fn,GA_ReadOnly)
+        fsun = g.ReadAsArray(3201,901,1600,900)
+        fsun.tofile(os.path.join(fsun_trees_path,"FSUN%s.dat" % date))
+          
+        vegt_fn = os.path.join(static_path,"5KM","VEGT","VEG_TYPE_MODIS.tif")  
+        g = gdal.Open(vegt_fn,GA_ReadOnly)
+        vegt = g.ReadAsArray(3201,901,1600,900)
+        vegt.tofile(os.path.join(fsun_trees_path,"VEGT%s.dat" % date))
+        
+        corr_fn = glob.glob(os.path.join(static_path,"5KM","CORR","DTHR_CORR_DTLOC150_SEP17_FINAL_*%s.tif" % r7day))[0]
+        g = gdal.Open(corr_fn,GA_ReadOnly)
+        corr = g.ReadAsArray(3201,901,1600,900)
+        corr.tofile(os.path.join(fsun_trees_path,"CORR%s.dat" % date))
+        
+        #======build fsun trees===============================================
+        s_doy = r7day
+        e_doy = r7day
+        s_year = year
+        e_year = year
+        #==========cropland===================================================
+        lc = "crop"
+        print "cropland"
+        
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        
+        out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 12 12" % (s_year, e_year, s_doy,e_doy), shell=True)
+        data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        shutil.copyfile(data_fn,data_doy_fn)
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        get_trees_fstem_namesV2(file_names)
+        out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+        
+        #==========grassland===================================================
+        lc = "grass"
+        print "grassland"
+        
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        
+        out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 11 11" % (s_year, e_year, s_doy,e_doy), shell=True)
+        data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        shutil.copyfile(data_fn,data_doy_fn)
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        get_trees_fstem_namesV2(file_names)
+        out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+        
+        #==========shrubland===================================================
+        lc = "shrub"
+        print "shrubland"
+        
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        
+        out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 9 10" % (s_year, e_year, s_doy,e_doy), shell=True)
+        data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        shutil.copyfile(data_fn,data_doy_fn)
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        get_trees_fstem_namesV2(file_names)
+        out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+        
+        #==========forest===================================================
+        lc = "forest"
+        print "forest"
+        
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        
+        out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 1 8" % (s_year, e_year, s_doy,e_doy), shell=True)
+        data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        shutil.copyfile(data_fn,data_doy_fn)
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        get_trees_fstem_namesV2(file_names)
+        out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
+        
+        #==========barren===================================================
+        lc = "bare"
+        print "barren"
+        
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        
+        out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 13 14" % (s_year, e_year, s_doy,e_doy), shell=True)
+        data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        shutil.copyfile(data_fn,data_doy_fn)
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        get_trees_fstem_namesV2(file_names)
+        out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
     
 def gridMergePythonEWA(tile,year,doy):
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
