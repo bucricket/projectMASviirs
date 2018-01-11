@@ -703,7 +703,7 @@ def processTreesV2(doy):
 def processFSUNtrees(year,doy):
     dtimedates = np.array(range(1,366,7))
     r7day = dtimedates[dtimedates>=doy][0]
-    if r7day ==1:
+    if r7day == 1:
         r7day = 365
     date = "%d%03d" %(year,r7day)
     
@@ -748,8 +748,8 @@ def processFSUNtrees(year,doy):
     year = 2016
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
     #======build fsun trees===============================================
-    s_doy = doy
-    e_doy = doy
+    s_doy = r7day
+    e_doy = r7day
     s_year = year
     e_year = year
     #==========cropland===================================================
