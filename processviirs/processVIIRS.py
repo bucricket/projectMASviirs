@@ -707,7 +707,7 @@ def processFSUNtrees(year,doy):
         r7day = 365
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')   
     cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % ('crop',r7day))   
-    if not os.path.exists(cubist_name):
+    if not os.path.exists(cubist_name+'.data'):
         date = "%d%03d" %(year,r7day)
         
         ##===========create dictionary and convert to csv=======
