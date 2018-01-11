@@ -705,6 +705,7 @@ def processFSUNtrees(year,doy):
     r7day = dtimedates[dtimedates>=doy][0]
     if r7day == 1:
         r7day = 365
+    
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')   
     cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % ('crop',r7day))   
     if not os.path.exists(cubist_name+'.data'):
@@ -756,71 +757,71 @@ def processFSUNtrees(year,doy):
         e_year = year
         #==========cropland===================================================
         lc = "crop"
-        print "cropland"
+#        print "cropland"
         
-        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,r7day))
         
         out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 12 12" % (s_year, e_year, s_doy,e_doy), shell=True)
         data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,r7day))
         shutil.copyfile(data_fn,data_doy_fn)
-        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,r7day))
         get_trees_fstem_namesV2(file_names)
         out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
         
         #==========grassland===================================================
         lc = "grass"
-        print "grassland"
+#        print "grassland"
         
-        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,r7day))
         
         out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 11 11" % (s_year, e_year, s_doy,e_doy), shell=True)
         data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,r7day))
         shutil.copyfile(data_fn,data_doy_fn)
-        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,r7day))
         get_trees_fstem_namesV2(file_names)
         out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
         
         #==========shrubland===================================================
         lc = "shrub"
-        print "shrubland"
+#        print "shrubland"
         
-        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,r7day))
         
         out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 9 10" % (s_year, e_year, s_doy,e_doy), shell=True)
         data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,r7day))
         shutil.copyfile(data_fn,data_doy_fn)
-        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,r7day))
         get_trees_fstem_namesV2(file_names)
         out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
         
         #==========forest===================================================
         lc = "forest"
-        print "forest"
+#        print "forest"
         
-        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,r7day))
         
         out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 1 8" % (s_year, e_year, s_doy,e_doy), shell=True)
         data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,r7day))
         shutil.copyfile(data_fn,data_doy_fn)
-        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,r7day))
         get_trees_fstem_namesV2(file_names)
         out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
         
         #==========barren===================================================
         lc = "bare"
-        print "barren"
+#        print "barren"
         
-        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,doy))
+        cubist_name = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d' % (lc,r7day))
         
         out1 = subprocess.check_output("make_csv %d %d %d %d 0 2000 0 100 13 14" % (s_year, e_year, s_doy,e_doy), shell=True)
         data_fn = os.path.join(fsun_trees_tile_ctl,"fsun.data")
-        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,doy))
+        data_doy_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.data' % (lc,r7day))
         shutil.copyfile(data_fn,data_doy_fn)
-        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,doy))
+        file_names = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.names'% (lc,r7day))
         get_trees_fstem_namesV2(file_names)
         out1 = subprocess.check_output("cubist -f %s -r 10" % cubist_name, shell=True)
     
