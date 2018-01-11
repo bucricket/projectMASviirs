@@ -1,6 +1,6 @@
 program make_csv
 
-integer, parameter :: dx=1600, dy=900
+integer, parameter :: dx=1500, dy=900
 character(len=255) :: i1, i2, i3, i4, i5, i6, i7, o1
 character(len=4) :: arg1, arg2, tile 
 character(len=3) :: arg3, arg4
@@ -38,8 +38,8 @@ write(6,*) iyear, eyear, iday, eday
 write(6,*) p1, p2, f1, f2, v1, v2
 counter=0
 
-i1='/data/PROCESS_VIIRS/STATIC/5KM/FMAX/FMAX.dat'
-i2='/data/PROCESS_VIIRS/STATIC/5KM/PRECIP/PRECIP.dat'
+i1='/work/waterforfood/bucricket/PROCESS_VIIRS/STATIC/5KM/FMAX/FMAX.dat'
+i2='/work/waterforfood/bucricket/PROCESS_VIIRS/STATIC/5KM/PRECIP/PRECIP.dat'
 open(10,file=i1,form='unformatted',access='direct',recl=dx*dy*4)
 open(11,file=i2,form='unformatted',access='direct',recl=dx*dy*4)
 read(10,rec=1) fmax
@@ -50,13 +50,13 @@ close(11)
 ndays=(eday-iday)+1
 do k = 1, ndays
  yyyyddd=iyear*1000+iday
- write(i1,'(a,I7,a)') '/data/PROCESS_VIIRS/PROCESSING/FSUN_TREES/DTHR',yyyyddd,'.dat'
- write(i2,'(a,I7,a)') '/data/PROCESS_VIIRS/PROCESSING/FSUN_TREES/TRD2',yyyyddd,'.dat'
- write(i3,'(a,I7,a)') '/data/PROCESS_VIIRS/PROCESSING/FSUN_TREES/RNET',yyyyddd,'.dat'
- write(i4,'(a,I7,a)') '/data/PROCESS_VIIRS/PROCESSING/FSUN_TREES/MLAI',yyyyddd,'.dat'
- write(i5,'(a,I7,a)') '/data/PROCESS_VIIRS/PROCESSING/FSUN_TREES/FSUN',yyyyddd,'.dat'
- write(i6,'(a,I7,a)') '/data/PROCESS_VIIRS/PROCESSING/FSUN_TREES/VEGT',yyyyddd,'.dat'
- write(i7,'(a,i7,a)') '/data/PROCESS_VIIRS/PROCESSING/FSUN_TREES/CORR',yyyyddd,'.dat'
+ write(i1,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/PROCESSING/FSUN_TREES/DTHR',yyyyddd,'.dat'
+ write(i2,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/PROCESSING/FSUN_TREES/TRD2',yyyyddd,'.dat'
+ write(i3,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/PROCESSING/FSUN_TREES/RNET',yyyyddd,'.dat'
+ write(i4,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/FSUN_TREES/MLAI',yyyyddd,'.dat'
+ write(i5,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/FSUN_TREES/FSUN',yyyyddd,'.dat'
+ write(i6,'(a,I7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/FSUN_TREES/VEGT',yyyyddd,'.dat'
+ write(i7,'(a,i7,a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/FSUN_TREES/CORR',yyyyddd,'.dat'
  open(10,file=i1,form='unformatted',access='direct',recl=dx*dy*4)
  open(11,file=i2,form='unformatted',access='direct',recl=dx*dy*4)
  open(12,file=i3,form='unformatted',access='direct',recl=dx*dy*4)
@@ -82,8 +82,7 @@ do k = 1, ndays
  iday=iday+1
 enddo
 
-counter=0
-write(o1,'(a)') '/data/PROCESS_VIIRS/PROCESSING/FSUN_TREES/tiles_ctl/fsun.data'
+write(o1,'(a)') '/work/waterforfood/bucricket/PROCESS_VIIRS/PROCESSING/FSUN_TREES/tiles_ctl/fsun.data'
 open(50,file=o1)
 do j = 1, dy
 do i = 1, dx
@@ -93,8 +92,6 @@ do i = 1, dx
  if (corr(i,j).ne.-9999.and.dthr(i,j).gt.0.0.and.trad2(i,j).gt.0.0.and.rnet(i,j).gt.0.0.and.fsun(i,j).gt.0.0.and.mlai(i,(dy-j)+1).gt.0.0) then 
 !  write(50,'(f9.3,a1,f9.3,a1,f9.3,a1,f9.3,a1,f9.3)') fsun(i,j), ',', dthr(i,j), ',',  rnet(i,j)/dthr(i,j), ',',  rnet(i,j),',', mlai(i,(dy-j)+1)
   write(50,'(f9.3,a1,f9.3,a1,f9.3,a1,f9.3)') fsun(i,j), ',', dthr(i,j)*corr(i,j), ',',  mlai(i,(dy-j)+1), ',', trad2(i,j)
-  counter=counter+1
-  write(*,*) counter
  endif
  endif
  endif
