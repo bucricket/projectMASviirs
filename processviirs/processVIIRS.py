@@ -703,6 +703,8 @@ def processTreesV2(doy):
 def processFSUNtrees(year,doy):
     dtimedates = np.array(range(1,366,7))
     r7day = dtimedates[dtimedates>=doy][0]
+    if r7day ==1:
+        r7day = 365
     date = "%d%03d" %(year,r7day)
     
     ##===========create dictionary and convert to csv=======
