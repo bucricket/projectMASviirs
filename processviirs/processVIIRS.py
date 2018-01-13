@@ -2489,7 +2489,8 @@ def getDailyET(tile,year,doy):
     g = gdal.Open(insol24_fn,GA_ReadOnly)
     Rs24= g.ReadAsArray()
 #    Rs24=(Rs24*0.0864)/24.0 
-    Rs24=(Rs24/8.)*0.0864 # there are 8 measurements of 3 hour averages from CFSR NOT 24!
+    Rs24 = Rs24*0.0864
+#    Rs24=(Rs24/8.)*0.0864 # there are 8 measurements of 3 hour averages from CFSR NOT 24!
     fsun_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_FSUN_%s_T%03d.tif' % (date,tile))
     g = gdal.Open(fsun_fn)
     Fsun = g.ReadAsArray()
