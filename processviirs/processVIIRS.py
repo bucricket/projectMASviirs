@@ -2372,110 +2372,112 @@ def useTreesV2(tile,year,doy):
     laidates = np.array(range(1,366,4))
     r4day = laidates[laidates>=doy][0]
     laiddd="%d%03d" %(year,r4day)
-#    dthr_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_DTRAD_%s_T%03d.dat' % (date,tile))
-#    trad2_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_DAY_LST_TIME2_%s_T%03d.dat' % (date,tile))
-    dtrad_tile_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
-    dthr_fn = os.path.join(dtrad_tile_path ,'FINAL_DTRAD_%s_T%03d.tif' % (date,tile))
-
-
-    lst2_tile_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
-    trad2_fn = os.path.join(lst2_tile_path,'FINAL_DAY_LST_TIME2_%s_T%03d.tif' % (date,tile))
-#    lai_fn = os.path.join(static_path,'LAI','MLAI_%s_T%03d.dat' % (laiddd,tile)) # only have 2015 so far
-    lai_fn = os.path.join(static_path,'LAI','MLAI_2015%03d_T%03d.tif' % (r4day,tile)) # TEMPORARY FOR RT PROCESSING
-    dthr_corr_fn = os.path.join(static_path,'DTHR_CORR','DTHR_CORR_2010%03d_T%03d.tif' % (r7day,tile))
-    dtime_fn = os.path.join(static_path,'DTIME','DTIME_2014%03d_T%03d.tif' % (r7day,tile))
-    lc_crop_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_crop_T%03d.tif' % tile)
-    lc_grass_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_grass_T%03d.tif' % tile)
-    lc_forest_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_forest_T%03d.tif' % tile)
-    lc_shrub_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_shrub_T%03d.tif' % tile)
-    lc_bare_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_bare_T%03d.tif' % tile)
-    
-#    dthr = np.fromfile(dthr_fn, dtype=np.float32)
-#    trad2 = np.fromfile(trad2_fn, dtype=np.float32)
-    g = gdal.Open(dthr_fn)
-    dthr = g.ReadAsArray()
-    dthr = np.reshape(dthr,[3750*3750])
-    g = gdal.Open(trad2_fn)
-    trad2 = g.ReadAsArray()
-    trad2 = np.reshape(trad2,[3750*3750])
-#    lai = np.fromfile(lai_fn, dtype=np.float32)
-    g = gdal.Open(lai_fn)
-    lai = g.ReadAsArray()
-    lai = np.reshape(lai,[lai.size]) 
-    
-    g = gdal.Open(dthr_corr_fn,GA_ReadOnly)
-    dthr_corr= g.ReadAsArray()
-    dthr_corr = np.reshape(dthr_corr,[3750*3750])
-
-    g = gdal.Open(dtime_fn)
-    dtime = g.ReadAsArray()
-    dtime = np.reshape(dtime,[dtime.size])
-    dthr = (dthr/dtime)*dthr_corr
-    dthr[dthr<0.0]=-9999.
-
-    predDict = {'dthr_corr':dthr,'trad2':trad2,'lai':lai}
-    predDF = pd.DataFrame.from_dict(predDict)
-    
-    fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
-    tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('crop',r7day))
-    crop_fsun = get_results_cubist_model(tree_fn,predDF)
-    crop_fsun[crop_fsun<0.0] = 0.0
-    crop_fsun = crop_fsun.reshape([3750,3750])
-    tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('grass',r7day))
-    grass_fsun = get_results_cubist_model(tree_fn,predDF)
-    grass_fsun[grass_fsun<0.0] = 0.0
-    grass_fsun = grass_fsun.reshape([3750,3750])
-    tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('shrub',r7day))
-    shrub_fsun = get_results_cubist_model(tree_fn,predDF)
-    shrub_fsun[shrub_fsun<0.0] = 0.0
-    shrub_fsun = shrub_fsun.reshape([3750,3750])
-    tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('forest',r7day))
-    forest_fsun = get_results_cubist_model(tree_fn,predDF)
-    forest_fsun[forest_fsun<0.0] = 0.0
-    forest_fsun = forest_fsun.reshape([3750,3750])
-    tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('bare',r7day))
-    bare_fsun = get_results_cubist_model(tree_fn,predDF)
-    bare_fsun[bare_fsun<0.0] = 0.0
-    bare_fsun = bare_fsun.reshape([3750,3750])
-    
-    #======open LC percentage maps============================================
-    g = gdal.Open(lc_crop_pert_fn)
-    crop_pert = g.ReadAsArray()
-    
-    g = gdal.Open(lc_grass_pert_fn)
-    grass_pert = g.ReadAsArray()
-    
-    g = gdal.Open(lc_forest_pert_fn)
-    forest_pert = g.ReadAsArray()
-    
-    g = gdal.Open(lc_shrub_pert_fn)
-    shrub_pert = g.ReadAsArray()
-    
-    g = gdal.Open(lc_bare_pert_fn)
-    bare_pert = g.ReadAsArray()
-    
-    #=====use the trees to estimate fsun=======================================
-#    fsun = crop_fsun*crop_pert+grass_fsun*grass_pert+forest_fsun*forest_pert
-#    +shrub_fsun*shrub_pert+bare_fsun*bare_pert
-    forest_part = forest_fsun*forest_pert
-    bare_part = bare_fsun*bare_pert
-    crop_part = crop_fsun*crop_pert
-    shrub_part = shrub_fsun*shrub_pert
-    grass_part = grass_fsun*grass_pert
-    fsun = crop_part+grass_part+forest_part+shrub_part+bare_part
-    trad2 = np.reshape(trad2,[3750,3750])
-    fsun[trad2==-9999.]=-9999.
-    fsun[((fsun<0.0) & (fsun != -9999.))] = 0.0
-    fsun[fsun>0.75] = -9999.
-    
-    fsun = np.array(fsun,dtype='Float32')
-    #====save outputs==========================================================
     out_fsun_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_FSUN_%s_T%03d.tif' % (date,tile))
-    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
-    writeArray2Tiff(fsun,ALEXI_res,inUL,inProjection,out_fsun_fn,gdal.GDT_Float32)
-    testing_path = os.path.join(tile_base_path,'FSUN','%03d' % doy)
-    testing_fn = os.path.join(testing_path,'FINAL_FSUN_%s_T%03d.tif' % (date,tile))
-    shutil.copyfile(out_fsun_fn,testing_fn)
+    if not os.path.exists(out_fsun_fn):
+    #    dthr_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_DTRAD_%s_T%03d.dat' % (date,tile))
+    #    trad2_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_DAY_LST_TIME2_%s_T%03d.dat' % (date,tile))
+        dtrad_tile_path = os.path.join(tile_base_path,'DTRAD','%03d' % doy)
+        dthr_fn = os.path.join(dtrad_tile_path ,'FINAL_DTRAD_%s_T%03d.tif' % (date,tile))
+    
+    
+        lst2_tile_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
+        trad2_fn = os.path.join(lst2_tile_path,'FINAL_DAY_LST_TIME2_%s_T%03d.tif' % (date,tile))
+    #    lai_fn = os.path.join(static_path,'LAI','MLAI_%s_T%03d.dat' % (laiddd,tile)) # only have 2015 so far
+        lai_fn = os.path.join(static_path,'LAI','MLAI_2015%03d_T%03d.tif' % (r4day,tile)) # TEMPORARY FOR RT PROCESSING
+        dthr_corr_fn = os.path.join(static_path,'DTHR_CORR','DTHR_CORR_2010%03d_T%03d.tif' % (r7day,tile))
+        dtime_fn = os.path.join(static_path,'DTIME','DTIME_2014%03d_T%03d.tif' % (r7day,tile))
+        lc_crop_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_crop_T%03d.tif' % tile)
+        lc_grass_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_grass_T%03d.tif' % tile)
+        lc_forest_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_forest_T%03d.tif' % tile)
+        lc_shrub_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_shrub_T%03d.tif' % tile)
+        lc_bare_pert_fn = os.path.join(base,'STATIC','LC_PERT','LC_PERT_bare_T%03d.tif' % tile)
+        
+    #    dthr = np.fromfile(dthr_fn, dtype=np.float32)
+    #    trad2 = np.fromfile(trad2_fn, dtype=np.float32)
+        g = gdal.Open(dthr_fn)
+        dthr = g.ReadAsArray()
+        dthr = np.reshape(dthr,[3750*3750])
+        g = gdal.Open(trad2_fn)
+        trad2 = g.ReadAsArray()
+        trad2 = np.reshape(trad2,[3750*3750])
+    #    lai = np.fromfile(lai_fn, dtype=np.float32)
+        g = gdal.Open(lai_fn)
+        lai = g.ReadAsArray()
+        lai = np.reshape(lai,[lai.size]) 
+        
+        g = gdal.Open(dthr_corr_fn,GA_ReadOnly)
+        dthr_corr= g.ReadAsArray()
+        dthr_corr = np.reshape(dthr_corr,[3750*3750])
+    
+        g = gdal.Open(dtime_fn)
+        dtime = g.ReadAsArray()
+        dtime = np.reshape(dtime,[dtime.size])
+        dthr = (dthr/dtime)*dthr_corr
+        dthr[dthr<0.0]=-9999.
+    
+        predDict = {'dthr_corr':dthr,'trad2':trad2,'lai':lai}
+        predDF = pd.DataFrame.from_dict(predDict)
+        
+        fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
+        tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('crop',r7day))
+        crop_fsun = get_results_cubist_model(tree_fn,predDF)
+        crop_fsun[crop_fsun<0.0] = 0.0
+        crop_fsun = crop_fsun.reshape([3750,3750])
+        tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('grass',r7day))
+        grass_fsun = get_results_cubist_model(tree_fn,predDF)
+        grass_fsun[grass_fsun<0.0] = 0.0
+        grass_fsun = grass_fsun.reshape([3750,3750])
+        tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('shrub',r7day))
+        shrub_fsun = get_results_cubist_model(tree_fn,predDF)
+        shrub_fsun[shrub_fsun<0.0] = 0.0
+        shrub_fsun = shrub_fsun.reshape([3750,3750])
+        tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('forest',r7day))
+        forest_fsun = get_results_cubist_model(tree_fn,predDF)
+        forest_fsun[forest_fsun<0.0] = 0.0
+        forest_fsun = forest_fsun.reshape([3750,3750])
+        tree_fn = os.path.join(fsun_trees_tile_ctl,'fsun_%s_%03d.model'% ('bare',r7day))
+        bare_fsun = get_results_cubist_model(tree_fn,predDF)
+        bare_fsun[bare_fsun<0.0] = 0.0
+        bare_fsun = bare_fsun.reshape([3750,3750])
+        
+        #======open LC percentage maps============================================
+        g = gdal.Open(lc_crop_pert_fn)
+        crop_pert = g.ReadAsArray()
+        
+        g = gdal.Open(lc_grass_pert_fn)
+        grass_pert = g.ReadAsArray()
+        
+        g = gdal.Open(lc_forest_pert_fn)
+        forest_pert = g.ReadAsArray()
+        
+        g = gdal.Open(lc_shrub_pert_fn)
+        shrub_pert = g.ReadAsArray()
+        
+        g = gdal.Open(lc_bare_pert_fn)
+        bare_pert = g.ReadAsArray()
+        
+        #=====use the trees to estimate fsun=======================================
+    #    fsun = crop_fsun*crop_pert+grass_fsun*grass_pert+forest_fsun*forest_pert
+    #    +shrub_fsun*shrub_pert+bare_fsun*bare_pert
+        forest_part = forest_fsun*forest_pert
+        bare_part = bare_fsun*bare_pert
+        crop_part = crop_fsun*crop_pert
+        shrub_part = shrub_fsun*shrub_pert
+        grass_part = grass_fsun*grass_pert
+        fsun = crop_part+grass_part+forest_part+shrub_part+bare_part
+        trad2 = np.reshape(trad2,[3750,3750])
+        fsun[trad2==-9999.]=-9999.
+        fsun[((fsun<0.0) & (fsun != -9999.))] = 0.0
+        fsun[fsun>0.75] = -9999.
+        
+        fsun = np.array(fsun,dtype='Float32')
+        #====save outputs==========================================================
+        out_fsun_fn = os.path.join(tile_base_path,'T%03d' % tile, 'FINAL_FSUN_%s_T%03d.tif' % (date,tile))
+        inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+        writeArray2Tiff(fsun,ALEXI_res,inUL,inProjection,out_fsun_fn,gdal.GDT_Float32)
+        testing_path = os.path.join(tile_base_path,'FSUN','%03d' % doy)
+        testing_fn = os.path.join(testing_path,'FINAL_FSUN_%s_T%03d.tif' % (date,tile))
+        shutil.copyfile(out_fsun_fn,testing_fn)
 
 def getDailyET(tile,year,doy):
     inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
