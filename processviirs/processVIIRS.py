@@ -2415,7 +2415,7 @@ def useTreesV2(tile,year,doy):
         dthr = (dthr/dtime)*dthr_corr
         dthr[dthr<0.0]=-9999.
     
-        predDict = {'dthr_corr':dthr,'trad2':trad2,'lai':lai}
+        predDict = {'dthr':dthr,'trad2':trad2,'lai':lai}
         predDF = pd.DataFrame.from_dict(predDict)
         
         fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
