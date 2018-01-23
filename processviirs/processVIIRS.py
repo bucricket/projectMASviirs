@@ -2560,10 +2560,12 @@ def write_color_table(minVal,maxVal,numColors,fileName):
     file.close()
 
 def createPNG(inTiff):
-    g = gdal.Open(inTiff)
-    data = g.ReadAsArray()
-    minVal = np.nanmin(data)
-    maxVal = np.nanmax(data)
+#    g = gdal.Open(inTiff)
+#    data = g.ReadAsArray()
+#    minVal = np.nanmin(data)
+#    maxVal = np.nanmax(data)
+    minVal = 0.01
+    maxVal = 10.0
     textFileName = inTiff[:-4]+"_color.txt"
     write_color_table(minVal,maxVal,7,textFileName)
     outPng = inTiff[:-3]+"png"
