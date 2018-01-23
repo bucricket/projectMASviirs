@@ -2544,10 +2544,10 @@ def getDailyET(tile,year,doy):
     writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,et_fn,gdal.GDT_Float32)
     createPNG(et_fn)
 
-def write_color_table(minVal,maxVal,numColors):
+def write_color_table(minVal,maxVal,numColors,fileName):
     interval = (maxVal-minVal)/numColors
     colorVals = range(int(minVal*100),int(maxVal*100),int(interval*100))
-    fn = os.path.join(os.getcwd(),'color.txt')
+    fn = os.path.join(os.getcwd(),fileName)
     file = open(fn, "w")
     file.write("-9999. 255 255 255\n")
     file.write("%f 255 0 0\n" % (colorVals[0]/100.))
@@ -2564,11 +2564,12 @@ def createPNG(inTiff):
     data = g.ReadAsArray()
     minVal = np.nanmin(data)
     maxVal = np.nanmax(data)
-    write_color_table(minVal,maxVal,7)
+    textFileName = inTiff[:-4]+"_color.txt"
+    write_color_table(minVal,maxVal,7,textFileName)
     outPng = inTiff[:-3]+"png"
     outds = gdal.Open(inTiff)
-    outds = gdal.DEMProcessing(outPng, outds,options=gdal.DEMProcessingOptions(colorFilename="color.txt",
-                                                                                  format="PNG"))
+    outds = gdal.DEMProcessing(outPng,outds,options=gdal.DEMProcessingOptions(colorFilename=textFileName,format="PNG"))
+#    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
     outds = None
     
 def createFolders(tile,year,doy):
