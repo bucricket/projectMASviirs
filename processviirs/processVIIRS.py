@@ -828,6 +828,11 @@ def processFSUNtrees(year,doy):
 def gridMergePythonEWA(tile,year,doy):
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
     dd = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
+    datet = datetime.datetime(year,dd.month, dd.day,0,0,0)
+    if datet > datetime.datetime(2017,3,8,0,0,0):
+       cloud_prefix = "VICMO"
+    else:
+       cloud_prefix = "IICMO" 
     date = "%d%03d" % (year,doy)
     LLlat,LLlon = tile2latlon(tile)
     URlat = LLlat+15.
@@ -843,597 +848,607 @@ def gridMergePythonEWA(tile,year,doy):
     
     #=====================Day==================================================
     #==========================================================================
-#    files = db[(db['south']-5 <= latmid) & (db['north']+5 >= latmid) & 
-#               (db['west']-5 <= lonmid) & (db['east']+5 >= lonmid) & 
-#               (db['year'] == year) & (db['doy'] == doy) & (db['N_Day_Night_Flag'] == 'Day')]
-#    filenames = files['filename']
-    
-    conn = sqlite3.connect( I5_db_name )
-    filenames = pd.read_sql_query("SELECT * from i5 WHERE (year = %d) AND "
-                              "(doy = %03d) AND (south-5 <= %f) AND "
-                              "(north+5 >= %f) AND (west-5 <= %f) "
-                              "AND (east+5 >= %f) AND (N_Day_Night_Flag = 'Day')" 
-                              % (year,doy,latmid,latmid,lonmid,lonmid), conn).filename
-    conn.close()
     fileProcessed=0
-    print filenames
-    orbits = []
-    for fn in filenames:
-        parts = fn.split(os.sep)[-1].split('_')
-        orbits.append(parts[5])
-    orbits = list(set(orbits)) 
-    orbitcount = 0
-    print "number of orbits: %d" % len(orbits)
-    for orbit in orbits:   
-        fns = [s for s in filenames if orbit in s.lower()]
-        count = 0
-        validFiles = []
-        for filename in fns:            
-            folder = os.sep.join(filename.split(os.sep)[:-1])
-            parts = filename.split(os.sep)[-1].split('_')
-            common_fn = os.path.join("_".join((parts[1],parts[2],parts[3],parts[4],parts[5])))
-            search_files = glob.glob(os.path.join(folder,"*"+common_fn+"*"))
-            if len(search_files)==4:
-                validFiles.append(common_fn)
-                
-        for common_fn in validFiles:
-            count+=1
-            search_file = os.path.join(folder,"*SVI05_"+common_fn+"*")
-            search_geofile = os.path.join(folder,"*GITCO_"+common_fn+"*")
-            search_cloudgeofile = os.path.join(folder,"*GMTCO_"+common_fn+"*")
-            datet = datetime.datetime(year,dd.month, dd.day,0,0,0)
-            if datet > datetime.datetime(2017,3,8,0,0,0):
-               cloud_prefix = "VICMO"
-            else:
-               cloud_prefix = "IICMO"               
-            search_cloudfile = os.path.join(folder,"*%s_" % cloud_prefix+common_fn+"*")
-            
-            filename = glob.glob(search_file)[0]
-            geofile = glob.glob(search_geofile)[0]
-            cloudfile = glob.glob(search_cloudfile)[0]
-            cloudgeofile = glob.glob(search_cloudgeofile)[0]
-            
-            # load cloud data==========
-            f=h5py.File(cloudfile,'r')
-            g=h5py.File(cloudgeofile,'r')
-            if datet > datetime.datetime(2017,3,8,0,0,0):
-                data_array = f['/All_Data/VIIRS-CM-EDR_All/QF1_VIIRSCMEDR'][()]
-            else:
-                data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
-            lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
-            lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
-            view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
-            
-            start=filename.find('_t')
-            out_time=filename[start+2:start+6]
-            
-            if count ==1:
-                latcloud = np.array(lat_array,'float32')
-                loncloud=np.array(lon_array,'float32')
-                cloud=np.array(data_array,'float32')
-                viewcloud=np.array(view_array,'float32')
-            else:
-                latcloud = np.vstack((latcloud,np.array(lat_array,'float32')))
-                loncloud = np.vstack((loncloud,np.array(lon_array,'float32')))
-                cloud = np.vstack((cloud,np.array(data_array,'float32')))
-                viewcloud = np.vstack((viewcloud,np.array(view_array,'float32')))
-                
-            # load water mask===========
-            f=h5py.File(cloudfile,'r')
-            g=h5py.File(cloudgeofile,'r')
-            if datet > datetime.datetime(2017,3,8,0,0,0):
-                data_array = f['/All_Data/VIIRS-CM-EDR_All/QF2_VIIRSCMEDR'][()]
-            else:
-                data_array = f['/All_Data/VIIRS-CM-IP_All/QF2_VIIRSCMIP'][()]
-            lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
-            lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
-            view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
-            
-            start=filename.find('_t')
-            out_time=filename[start+2:start+6]
-            
-            if count ==1:
-                watermask=np.array(data_array,'float32')
-            else:
-                watermask = np.vstack((watermask,np.array(data_array,'float32')))
-                
-            #  load BT data============
-            f=h5py.File(filename,'r')
-            g=h5py.File(geofile,'r')
-            data_array = f['/All_Data/VIIRS-I5-SDR_All/BrightnessTemperature'][()]
-            lat_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Latitude'][()]
-            lon_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Longitude'][()]
-            view_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/SatelliteZenithAngle'][()]
-            if count ==1:
-                lat=np.array(lat_array,'float32')
-                lon=np.array(lon_array,'float32')
-                data=np.array(data_array,'float32')
-                view=np.array(view_array,'float32')
-            else:
-                lat = np.vstack((lat,np.array(lat_array,'float32')))
-                lon = np.vstack((lon,np.array(lon_array,'float32')))
-                data = np.vstack((data,np.array(data_array,'float32')))
-                view = np.vstack((view,np.array(view_array,'float32')))
-        #====cloud gridding=====================
-        if len(validFiles) == 0:
-            continue
-        orbitcount+=1
-        cloudOrig=cloud.copy()
-        #get 2-3 bits
-        cloud=np.array(cloud,'uint8')
-        cloud = np.reshape(cloud,[cloud.size, 1])
-        b = np.unpackbits(cloud, axis=1)
-        cloud = np.sum(b[:,4:6],axis=1)
-        cloud = np.reshape(cloud,[cloudOrig.shape[0],cloudOrig.shape[1]])
-        cloud = np.array(cloud, dtype='float32')
+    outfn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.tif" % (date,tile))
+    if not os.path.exists(outfn):
+        print("starting tile T%03d" % tile)
+        conn = sqlite3.connect( I5_db_name )
+        filenames = pd.read_sql_query("SELECT * from i5 WHERE (year = %d) AND "
+                                  "(doy = %03d) AND (south-5 <= %f) AND "
+                                  "(north+5 >= %f) AND (west-5 <= %f) "
+                                  "AND (east+5 >= %f) AND (N_Day_Night_Flag = 'Day')" 
+                                  % (year,doy,latmid,latmid,lonmid,lonmid), conn).filename
+        conn.close()
         
-        #====get water mask from bits===========
-        
-        watermask=np.array(watermask,'uint8')
-        watermask = np.reshape(watermask,[watermask.size, 1])
-        b = np.unpackbits(watermask, axis=1)
-        watermask = np.sum(b[:,5:7],axis=1)
-        watermask = np.reshape(watermask,[cloudOrig.shape[0],cloudOrig.shape[1]])
-        watermask = np.array(watermask, dtype='float32')
-        
-        mask = (cloudOrig==0.)
-        cloud[mask]=np.nan
-        viewcloud[mask]=np.nan
-        watermask[mask]=np.nan
-        #=====check if data is in range========================================
-        rangeIndex = ((latcloud<-90.) | (latcloud > 90.) | (loncloud < -180.) | (loncloud > 180.))
-        latcloud[rangeIndex] = np.nan
-        loncloud[rangeIndex] = np.nan
-        cloud[rangeIndex] = np.nan
-        viewcloud[rangeIndex] = np.nan
-        watermask[rangeIndex] = np.nan
-        if np.nansum(cloud)==0: # check if there is any data
-            continue
-
-        projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
-        area_id ='tile'
-        proj_id = 'latlon'
-        description = 'lat lon grid'
-
-        swath_def = geometry.SwathDefinition(lons=loncloud, lats=latcloud)
+        orbits = []
+        for fn in filenames:
+            parts = fn.split(os.sep)[-1].split('_')
+            orbits.append(parts[5])
+#            print fn.split(os.sep)[-1]
+        orbits = list(set(orbits)) 
+        orbitcount = 0
+#        print "number of orbits: %d" % len(orbits)
         x_size = 3750
         y_size = 3750
-        area_extent = (LLlon,LLlat,URlon,URlat)
-        area_def = utils.get_area_def(area_id, description, proj_id, projection,
-                                                   x_size, y_size, area_extent)
-        swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
-        rows_per_scan = 16
+        cloud_stack = np.tile(np.nan,[y_size,x_size])
+        cloudview_stack = np.tile(np.nan,[y_size,x_size])
+        watermask_stack = np.tile(np.nan,[y_size,x_size])
+        lst_stack = np.tile(np.nan,[y_size,x_size])
+        view_stack = np.tile(np.nan,[y_size,x_size])
+        for orbit in orbits:   
+            fns = [s for s in filenames if orbit in s.lower()]
+            file_count = 0
+            validFiles = []
+            for filename in fns:            
+                folder = os.sep.join(filename.split(os.sep)[:-1])
+                parts = filename.split(os.sep)[-1].split('_')
+                file_prefixes = ['SVI05','GITCO','GMTCO',cloud_prefix]
+                file_count=0
+                for file_prefix in file_prefixes: 
+                    common_fn = os.path.join("_".join((parts[1],parts[2],parts[3],parts[4],parts[5])))
+                    search_files = glob.glob(os.path.join(folder,"*"+file_prefix+common_fn+"*"))
+                    if search_files>0:
+                        file_count+=1                  
+                if file_count==4:
+                    validFiles.append(common_fn)
+            count=0       
+            for common_fn in validFiles:
+                
+                count+=1
+                search_file = os.path.join(folder,"*SVI05_"+common_fn+"*")
+                search_geofile = os.path.join(folder,"*GITCO_"+common_fn+"*")
+                search_cloudgeofile = os.path.join(folder,"*GMTCO_"+common_fn+"*")              
+                search_cloudfile = os.path.join(folder,"*%s_" % cloud_prefix+common_fn+"*")
+                
+                filename = glob.glob(search_file)[0]
+                geofile = glob.glob(search_geofile)[0]
+                cloudfile = glob.glob(search_cloudfile)[0]
+                cloudgeofile = glob.glob(search_cloudgeofile)[0]
+#                print(filename)
+                
+                # load cloud data==========
+                f=h5py.File(cloudfile,'r')
+                g=h5py.File(cloudgeofile,'r')
+                if datet > datetime.datetime(2017,3,8,0,0,0):
+                    data_array = f['/All_Data/VIIRS-CM-EDR_All/QF1_VIIRSCMEDR'][()]
+                else:
+                    data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
+                lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
+                lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
+                view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
+                
+                start=filename.find('_t')
+                out_time=filename[start+2:start+6]
+                
+                if count ==1:
+                    latcloud = np.array(lat_array,'float32')
+                    loncloud=np.array(lon_array,'float32')
+                    cloud=np.array(data_array,'float32')
+                    viewcloud=np.array(view_array,'float32')
+                else:
+                    latcloud = np.vstack((latcloud,np.array(lat_array,'float32')))
+                    loncloud = np.vstack((loncloud,np.array(lon_array,'float32')))
+                    cloud = np.vstack((cloud,np.array(data_array,'float32')))
+                    viewcloud = np.vstack((viewcloud,np.array(view_array,'float32')))
+                    
+                # load water mask===========
+                f=h5py.File(cloudfile,'r')
+                g=h5py.File(cloudgeofile,'r')
+                if datet > datetime.datetime(2017,3,8,0,0,0):
+                    data_array = f['/All_Data/VIIRS-CM-EDR_All/QF2_VIIRSCMEDR'][()]
+                else:
+                    data_array = f['/All_Data/VIIRS-CM-IP_All/QF2_VIIRSCMIP'][()]
+                lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
+                lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
+                view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
+                
+                start=filename.find('_t')
+                out_time=filename[start+2:start+6]
+                
+                if count ==1:
+                    watermask=np.array(data_array,'float32')
+                else:
+                    watermask = np.vstack((watermask,np.array(data_array,'float32')))
+                    
+                #  load BT data============
+                f=h5py.File(filename,'r')
+                g=h5py.File(geofile,'r')
+                data_array = f['/All_Data/VIIRS-I5-SDR_All/BrightnessTemperature'][()]
+                lat_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Latitude'][()]
+                lon_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Longitude'][()]
+                view_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/SatelliteZenithAngle'][()]
+                if count ==1:
+                    lat=np.array(lat_array,'float32')
+                    lon=np.array(lon_array,'float32')
+                    data=np.array(data_array,'float32')
+                    view=np.array(view_array,'float32')
+                else:
+                    lat = np.vstack((lat,np.array(lat_array,'float32')))
+                    lon = np.vstack((lon,np.array(lon_array,'float32')))
+                    data = np.vstack((data,np.array(data_array,'float32')))
+                    view = np.vstack((view,np.array(view_array,'float32')))
+            #====cloud gridding=====================
+            if len(validFiles) == 0:
+                continue
+            orbitcount+=1
+            cloudOrig=cloud.copy()
+            #get 2-3 bits
+            cloud=np.array(cloud,'uint8')
+            cloud = np.reshape(cloud,[cloud.size, 1])
+            b = np.unpackbits(cloud, axis=1)
+            cloud = np.sum(b[:,4:6],axis=1)
+            cloud = np.reshape(cloud,[cloudOrig.shape[0],cloudOrig.shape[1]])
+            cloud = np.array(cloud, dtype='float32')
+            
+            #====get water mask from bits===========
+            
+            watermask=np.array(watermask,'uint8')
+            watermask = np.reshape(watermask,[watermask.size, 1])
+            b = np.unpackbits(watermask, axis=1)
+            watermask = np.sum(b[:,5:7],axis=1)
+            watermask = np.reshape(watermask,[cloudOrig.shape[0],cloudOrig.shape[1]])
+            watermask = np.array(watermask, dtype='float32')
+            
+            mask = (cloudOrig==0.)
+            cloud[mask]=np.nan
+            viewcloud[mask]=np.nan
+            watermask[mask]=np.nan
+            #=====check if data is in range========================================
+            rangeIndex = ((latcloud<-90.) | (latcloud > 90.) | (loncloud < -180.) | (loncloud > 180.))
+            latcloud[rangeIndex] = np.nan
+            loncloud[rangeIndex] = np.nan
+            cloud[rangeIndex] = np.nan
+            viewcloud[rangeIndex] = np.nan
+            watermask[rangeIndex] = np.nan
+            if np.nansum(cloud)==0: # check if there is any data
+                continue
+    
+            projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
+            area_id ='tile'
+            proj_id = 'latlon'
+            description = 'lat lon grid'
+    
+            swath_def = geometry.SwathDefinition(lons=loncloud, lats=latcloud)
 
-        try: # if there are no valid pixels in the region move on
-            num_valid_points, gridded_cloud = fornav(cols, rows, area_def, cloud, rows_per_scan=rows_per_scan)
-        except:
-            gridded_cloud = np.tile(-9999.,[y_size,x_size])
-            continue
-        try:
-            num_valid_points, gridded_cloudview = fornav(cols, rows, area_def, viewcloud, rows_per_scan=rows_per_scan)
-        except:
-            gridded_cloudview = np.tile(-9999.,[y_size,x_size])
-            continue        
-        try:
-            num_valid_points, gridded_watermask = fornav(cols, rows, area_def, watermask, rows_per_scan=rows_per_scan)
-        except:
-            gridded_watermask = np.tile(-9999.,[y_size,x_size])
-            continue
-        
-        
-        gridded_cloud[gridded_cloudview>60.0]=np.nan
-        gridded_watermask[gridded_cloudview>60.0]=np.nan
-        #stack data
-        if orbitcount==1:
-            cloud_stack = gridded_cloud
-            cloudview_stack = gridded_cloudview
-            watermask_stack = gridded_watermask
-        else:
+            area_extent = (LLlon,LLlat,URlon,URlat)
+            area_def = utils.get_area_def(area_id, description, proj_id, projection,
+                                                       x_size, y_size, area_extent)
+            swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
+            rows_per_scan = 16
+    
+            try: # if there are no valid pixels in the region move on
+                num_valid_points, gridded_cloud = fornav(cols, rows, area_def, cloud, rows_per_scan=rows_per_scan)
+            except:
+                gridded_cloud = np.tile(-9999.,[y_size,x_size])
+                continue
+            try:
+                num_valid_points, gridded_cloudview = fornav(cols, rows, area_def, viewcloud, rows_per_scan=rows_per_scan)
+            except:
+                gridded_cloudview = np.tile(-9999.,[y_size,x_size])
+                continue        
+            try:
+                num_valid_points, gridded_watermask = fornav(cols, rows, area_def, watermask, rows_per_scan=rows_per_scan)
+            except:
+                gridded_watermask = np.tile(-9999.,[y_size,x_size])
+                continue
+            
+            
+            gridded_cloud[gridded_cloudview>60.0]=np.nan
+            gridded_watermask[gridded_cloudview>60.0]=np.nan
+            #stack data
+#            if orbitcount<=1:
+#                cloud_stack = gridded_cloud
+#                cloudview_stack = gridded_cloudview
+#                watermask_stack = gridded_watermask
+#            else:
             cloud_stack = np.dstack((cloud_stack,gridded_cloud))
             cloudview_stack = np.dstack((cloudview_stack,gridded_cloudview))
             watermask_stack = np.dstack((watermask_stack,gridded_watermask))
+                
+            #==LST gridding===========================
+            mask = (data>65527.)
+            data[mask]=np.nan
+            view[mask]=np.nan
+            #=====check if data is in range========================================
+            rangeIndex = ((lat<-90.) | (lat > 90.) | (lon < -180.) | (lon > 180.))
+            lat[rangeIndex] = np.nan
+            lon[rangeIndex] = np.nan
+            data[rangeIndex] = np.nan
+            view[rangeIndex] = np.nan
             
-        #==LST gridding===========================
-        mask = (data>65527.)
-        data[mask]=np.nan
-        view[mask]=np.nan
-        #=====check if data is in range========================================
-        rangeIndex = ((lat<-90.) | (lat > 90.) | (lon < -180.) | (lon > 180.))
-        lat[rangeIndex] = np.nan
-        lon[rangeIndex] = np.nan
-        data[rangeIndex] = np.nan
-        view[rangeIndex] = np.nan
-        
-        if np.nansum(data)==0: # check if there is any data
-            continue
-        projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
-        area_id ='tile'
-        proj_id = 'latlon'
-        description = 'lat lon grid'
-
-        swath_def = geometry.SwathDefinition(lons=lon, lats=lat)
-        x_size = 3750
-        y_size = 3750
-        area_extent = (LLlon,LLlat,URlon,URlat)
-        area_def = utils.get_area_def(area_id, description, proj_id, projection,
-                                                   x_size, y_size, area_extent)
-        swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
-        rows_per_scan = 32
-        try: # if there are no valid pixels in the region move on
-            num_valid_points, gridded_data = fornav(cols, rows, area_def, data, rows_per_scan=rows_per_scan)
-        except:
-            gridded_data = np.tile(-9999.,[y_size,x_size])
-            continue
-        try:
-            num_valid_points, gridded_view = fornav(cols, rows, area_def, view, rows_per_scan=rows_per_scan)
-        except:
-            gridded_view = np.tile(-9999.,[y_size,x_size])
-            continue
-        
-        lst = gridded_data*0.00351+150.0
-        lst[gridded_view>60.0]=-9999.
-        #stack data
-        if orbitcount==1:
-            lst_stack = lst
-            view_stack = gridded_view
-        else:
+            if np.nansum(data)==0: # check if there is any data
+                continue
+            projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
+            area_id ='tile'
+            proj_id = 'latlon'
+            description = 'lat lon grid'
+    
+            swath_def = geometry.SwathDefinition(lons=lon, lats=lat)
+            x_size = 3750
+            y_size = 3750
+            area_extent = (LLlon,LLlat,URlon,URlat)
+            area_def = utils.get_area_def(area_id, description, proj_id, projection,
+                                                       x_size, y_size, area_extent)
+            swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
+            rows_per_scan = 32
+            try: # if there are no valid pixels in the region move on
+                num_valid_points, gridded_data = fornav(cols, rows, area_def, data, rows_per_scan=rows_per_scan)
+            except:
+                print("something is F-ed")
+                gridded_data = np.tile(-9999.,[y_size,x_size])
+                continue
+            try:
+                num_valid_points, gridded_view = fornav(cols, rows, area_def, view, rows_per_scan=rows_per_scan)
+            except:
+                gridded_view = np.tile(-9999.,[y_size,x_size])
+                continue
+            
+            lst = gridded_data*0.00351+150.0
+            lst[gridded_view>60.0]=-9999.
+            #stack data
+#            if orbitcount<=1:
+#                lst_stack = lst
+#                view_stack = gridded_view
+#            else:
             lst_stack = np.dstack((lst_stack,lst))
             view_stack = np.dstack((view_stack,gridded_view))
-
-    #=========CLOUD:doing angle clearing======================================
-    if orbitcount > 0:
-        fileProcessed+=1
-        if cloudview_stack.ndim == 2:  
-            dims = [cloudview_stack.shape[0],cloudview_stack.shape[0],1]
-        else:
-            dims = cloudview_stack.shape     
-        aa = np.reshape(cloudview_stack,[dims[0]*dims[1],dims[2]])
-        aa[np.isnan(aa)]=9999.
-        indcol = np.argmin(aa,axis=1)
-        indrow = range(0,len(indcol))
-        bb = np.reshape(cloud_stack,[dims[0]*dims[1],dims[2]])
-        cloud = bb[indrow,indcol]
-        cloud = np.reshape(cloud,[3750,3750])
-        #=========WATERMASK:doing angle clearing======================================
-        if watermask_stack.ndim == 2:  
-            dims = [watermask_stack.shape[0],watermask_stack.shape[0],1]
-        else:
-            dims = watermask_stack.shape     
-        aa = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
-        aa[np.isnan(aa)]=9999.
-        indcol = np.argmin(aa,axis=1)
-        indrow = range(0,len(indcol))
-        bb = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
-        watermask = bb[indrow,indcol]
-        watermask = np.reshape(watermask,[3750,3750])
-        #=========BT:doing angle and cloud clearing================================     
-        aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
-        aa[np.isnan(aa)]=9999.
-        indcol = np.argmin(aa,axis=1)
-        indrow = range(0,len(indcol))
-        bb = np.reshape(lst_stack,[dims[0]*dims[1],dims[2]])
-        lst = bb[indrow,indcol]
-        lst = np.reshape(lst,[3750,3750])
-        lst = np.array(lst,dtype='Float32')
-    #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
-        out_bt_fn = os.path.join(tile_path,"merged_day_bt_%s_T%03d_%s.tif" % (date,tile,out_time))
-        lst[cloud>1]=-9999.
-        lst[(watermask==1) | (watermask==2)]=np.nan
-#        lst.tofile(out_bt_fn)
-#        convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32) 
-        writeArray2Tiff(lst,ALEXIres,inUL,inProjection,out_bt_fn,gdal.GDT_Float32)
-        
-        #=========VIEW:doing angle and cloud clearing================================     
-        aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
-        aa[np.isnan(aa)]=9999.
-        indcol = np.argmin(aa,axis=1)
-        indrow = range(0,len(indcol))
-        bb = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
-        view = bb[indrow,indcol]
-        view = np.reshape(view,[3750,3750])
-        view = np.array(view,dtype='Float32')
-    #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
-        out_view_fn = os.path.join(tile_path,"merged_day_view_%s_T%03d_%s.tif" % (date,tile,out_time))
-        view[cloud>1]=-9999.
-        view[(watermask==1) | (watermask==2)]=np.nan
-#        view.tofile(out_view_fn)
-#        convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
-        writeArray2Tiff(view,ALEXIres,inUL,inProjection,out_view_fn,gdal.GDT_Float32)
     
+        #=========CLOUD:doing angle clearing======================================
+        if orbitcount > 0:
+            fileProcessed+=1
+            if cloudview_stack.ndim == 2:  
+                dims = [cloudview_stack.shape[0],cloudview_stack.shape[0],1]
+            else:
+                dims = cloudview_stack.shape     
+            aa = np.reshape(cloudview_stack,[dims[0]*dims[1],dims[2]])
+            aa[np.isnan(aa)]=9999.
+            indcol = np.argmin(aa,axis=1)
+            indrow = range(0,len(indcol))
+            bb = np.reshape(cloud_stack,[dims[0]*dims[1],dims[2]])
+            cloud = bb[indrow,indcol]
+            cloud = np.reshape(cloud,[3750,3750])
+            #=========WATERMASK:doing angle clearing======================================
+            if watermask_stack.ndim == 2:  
+                dims = [watermask_stack.shape[0],watermask_stack.shape[0],1]
+            else:
+                dims = watermask_stack.shape     
+            aa = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
+            aa[np.isnan(aa)]=9999.
+            indcol = np.argmin(aa,axis=1)
+            indrow = range(0,len(indcol))
+            bb = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
+            watermask = bb[indrow,indcol]
+            watermask = np.reshape(watermask,[3750,3750])
+            #=========BT:doing angle and cloud clearing================================     
+            aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+            aa[np.isnan(aa)]=9999.
+            indcol = np.argmin(aa,axis=1)
+            indrow = range(0,len(indcol))
+            bb = np.reshape(lst_stack,[dims[0]*dims[1],dims[2]])
+            lst = bb[indrow,indcol]
+            lst = np.reshape(lst,[3750,3750])
+            lst = np.array(lst,dtype='Float32')
+            out_bt_fn = os.path.join(tile_path,"merged_day_bt_%s_T%03d_%s.tif" % (date,tile,out_time))
+            lst[cloud>1]=-9999.
+            lst[(watermask==1) | (watermask==2)]=np.nan 
+            writeArray2Tiff(lst,ALEXIres,inUL,inProjection,out_bt_fn,gdal.GDT_Float32)
+            
+            #=========VIEW:doing angle and cloud clearing================================     
+            aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+            aa[np.isnan(aa)]=9999.
+            indcol = np.argmin(aa,axis=1)
+            indrow = range(0,len(indcol))
+            bb = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+            view = bb[indrow,indcol]
+            view = np.reshape(view,[3750,3750])
+            view = np.array(view,dtype='Float32')
+            out_view_fn = os.path.join(tile_path,"merged_day_view_%s_T%03d_%s.tif" % (date,tile,out_time))
+            view[cloud>1]=-9999.
+            view[(watermask==1) | (watermask==2)]=np.nan
+            writeArray2Tiff(view,ALEXIres,inUL,inProjection,out_view_fn,gdal.GDT_Float32)
+    else:
+        fileProcessed+=1  
     #=====================Night================================================
     #==========================================================================
-#    files = db[(db['south']-5 <= latmid) & (db['north']+5 >= latmid) & 
-#               (db['west']-5 <= lonmid) & (db['east']+5 >= lonmid) & 
-#               (db['year'] == year) & (db['doy'] == doy) & (db['N_Day_Night_Flag'] == 'Night')]
-#    filenames = files['filename']
+    outfn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.tif" % (date,tile))
+    if not os.path.exists(outfn):
+        conn = sqlite3.connect( I5_db_name )
+        filenames = pd.read_sql_query("SELECT * from i5 WHERE (year = %d) AND "
+                                  "(doy = %03d) AND (south-5 <= %f) AND "
+                                  "(north+5 >= %f) AND (west-5 <= %f) "
+                                  "AND (east+5 >= %f) AND (N_Day_Night_Flag = 'Night')" 
+                                  % (year,doy,latmid,latmid,lonmid,lonmid), conn).filename
+        conn.close()
     
-    conn = sqlite3.connect( I5_db_name )
-    filenames = pd.read_sql_query("SELECT * from i5 WHERE (year = %d) AND "
-                              "(doy = %03d) AND (south-5 <= %f) AND "
-                              "(north+5 >= %f) AND (west-5 <= %f) "
-                              "AND (east+5 >= %f) AND (N_Day_Night_Flag = 'Night')" 
-                              % (year,doy,latmid,latmid,lonmid,lonmid), conn).filename
-    conn.close()
-
-    orbits = []
-    for fn in filenames:
-        parts = fn.split(os.sep)[-1].split('_')
-        orbits.append(parts[5])
-    orbits = list(set(orbits)) 
-    orbitcount = 0
-    for orbit in orbits:           
-        fns = [s for s in filenames if orbit in s.lower()]
-        count = 0
-        validFiles = []
-        for filename in fns:            
-            folder = os.sep.join(filename.split(os.sep)[:-1])
-            parts = filename.split(os.sep)[-1].split('_')
-            common_fn = os.path.join("_".join((parts[1],parts[2],parts[3],parts[4],parts[5])))
-            search_files = glob.glob(os.path.join(folder,"*"+common_fn+"*"))
-            if len(search_files)==4:
-                validFiles.append(common_fn)
+        orbits = []
+        for fn in filenames:
+            parts = fn.split(os.sep)[-1].split('_')
+            orbits.append(parts[5])
+        orbits = list(set(orbits)) 
+        cloud_stack = np.tile(np.nan,[y_size,x_size])
+        cloudview_stack = np.tile(np.nan,[y_size,x_size])
+        watermask_stack = np.tile(np.nan,[y_size,x_size])
+        lst_stack = np.tile(np.nan,[y_size,x_size])
+        view_stack = np.tile(np.nan,[y_size,x_size])
+        orbitcount = 0
+        for orbit in orbits:           
+            fns = [s for s in filenames if orbit in s.lower()]
+            
+            file_count = 0
+            validFiles = []
+            for filename in fns:            
+                folder = os.sep.join(filename.split(os.sep)[:-1])
+                parts = filename.split(os.sep)[-1].split('_')
+                file_prefixes = ['SVI05','GITCO','GMTCO',cloud_prefix]
+                file_count=0
+                for file_prefix in file_prefixes: 
+                    common_fn = os.path.join("_".join((parts[1],parts[2],parts[3],parts[4],parts[5])))
+                    search_files = glob.glob(os.path.join(folder,"*"+file_prefix+common_fn+"*"))
+                    if search_files>0:
+                        file_count+=1                    
+                if file_count==4:
+                    validFiles.append(common_fn)
+            count = 0       
+            for common_fn in validFiles:
+                count+=1
+                search_file = os.path.join(folder,"*SVI05_"+common_fn+"*")
+                search_geofile = os.path.join(folder,"*GITCO_"+common_fn+"*")
+                search_cloudgeofile = os.path.join(folder,"*GMTCO_"+common_fn+"*")              
+                search_cloudfile = os.path.join(folder,"*%s_" % cloud_prefix+common_fn+"*")
                 
-        for common_fn in validFiles:
-            count+=1
-            search_file = os.path.join(folder,"*SVI05_"+common_fn+"*")
-            search_geofile = os.path.join(folder,"*GITCO_"+common_fn+"*")
-            search_cloudgeofile = os.path.join(folder,"*GMTCO_"+common_fn+"*")
-            datet = datetime.datetime(year,dd.month, dd.day,0,0,0)
-            if datet > datetime.datetime(2017,3,8,0,0,0):
-               cloud_prefix = "VICMO"
-            else:
-               cloud_prefix = "IICMO"               
-            search_cloudfile = os.path.join(folder,"*%s_" % cloud_prefix+common_fn+"*")
-            
-            filename = glob.glob(search_file)[0]
-            geofile = glob.glob(search_geofile)[0]
-            cloudfile = glob.glob(search_cloudfile)[0]
-            cloudgeofile = glob.glob(search_cloudgeofile)[0]
-            
-            # load cloud data==========
-            f=h5py.File(cloudfile,'r')
-            g=h5py.File(cloudgeofile,'r')
-            if datet > datetime.datetime(2017,3,8,0,0,0):
-                data_array = f['/All_Data/VIIRS-CM-EDR_All/QF1_VIIRSCMEDR'][()]
-            else:
-                data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
-            lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
-            lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
-            view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
-            
-            start=filename.find('_t')
-            out_time=filename[start+2:start+6]
-            
-            if count ==1:
-                latcloud = np.array(lat_array,'float32')
-                loncloud=np.array(lon_array,'float32')
-                cloud=np.array(data_array,'float32')
-                viewcloud=np.array(view_array,'float32')
-            else:
-                latcloud = np.vstack((latcloud,np.array(lat_array,'float32')))
-                loncloud = np.vstack((loncloud,np.array(lon_array,'float32')))
-                cloud = np.vstack((cloud,np.array(data_array,'float32')))
-                viewcloud = np.vstack((viewcloud,np.array(view_array,'float32')))
+                filename = glob.glob(search_file)[0]
+                geofile = glob.glob(search_geofile)[0]
+                cloudfile = glob.glob(search_cloudfile)[0]
+                cloudgeofile = glob.glob(search_cloudgeofile)[0]
                 
-            # load water mask===========
-            f=h5py.File(cloudfile,'r')
-            g=h5py.File(cloudgeofile,'r')
-            if datet > datetime.datetime(2017,3,8,0,0,0):
-                data_array = f['/All_Data/VIIRS-CM-EDR_All/QF2_VIIRSCMEDR'][()]
-            else:
-                data_array = f['/All_Data/VIIRS-CM-IP_All/QF2_VIIRSCMIP'][()]
-            lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
-            lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
-            view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
-            
-            start=filename.find('_t')
-            out_time=filename[start+2:start+6]
-            
-            if count ==1:
-                watermask=np.array(data_array,'float32')
-            else:
-                watermask = np.vstack((watermask,np.array(data_array,'float32')))
+                # load cloud data==========
+                f=h5py.File(cloudfile,'r')
+                g=h5py.File(cloudgeofile,'r')
+                if datet > datetime.datetime(2017,3,8,0,0,0):
+                    data_array = f['/All_Data/VIIRS-CM-EDR_All/QF1_VIIRSCMEDR'][()]
+                else:
+                    data_array = f['/All_Data/VIIRS-CM-IP_All/QF1_VIIRSCMIP'][()]
+                lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
+                lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
+                view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
                 
-            #  Load BT data=============
-            f=h5py.File(filename,'r')
-            g=h5py.File(geofile,'r')
-            data_array = f['/All_Data/VIIRS-I5-SDR_All/BrightnessTemperature'][()]
-            lat_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Latitude'][()]
-            lon_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Longitude'][()]
-            view_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/SatelliteZenithAngle'][()]
-            if count ==1:
-                lat=np.array(lat_array,'float32')
-                lon=np.array(lon_array,'float32')
-                data=np.array(data_array,'float32')
-                view=np.array(view_array,'float32')
-            else:
-                lat = np.vstack((lat,np.array(lat_array,'float32')))
-                lon = np.vstack((lon,np.array(lon_array,'float32')))
-                data = np.vstack((data,np.array(data_array,'float32')))
-                view = np.vstack((view,np.array(view_array,'float32')))
-        #====cloud gridding=====================
-        if len(validFiles) == 0:
-            continue
-        orbitcount+=1
-        cloudOrig=cloud.copy()
-        #get 2-3 bits
-        cloud=np.array(cloud,'uint8')
-        cloud = np.reshape(cloud,[cloud.size, 1])
-        b = np.unpackbits(cloud, axis=1)
-        cloud = np.sum(b[:,4:6],axis=1)
-        cloud = np.reshape(cloud,[cloudOrig.shape[0],cloudOrig.shape[1]])
-        cloud = np.array(cloud, dtype='float32')
-        mask = (cloudOrig==0.)
-        cloud[mask]=np.nan
-        viewcloud[mask]=np.nan
-        #====get water mask from bits===========
-        
-        watermask=np.array(watermask,'uint8')
-        watermask = np.reshape(watermask,[watermask.size, 1])
-        b = np.unpackbits(watermask, axis=1)
-        watermask = np.sum(b[:,5:7],axis=1)
-        watermask = np.reshape(watermask,[cloudOrig.shape[0],cloudOrig.shape[1]])
-        watermask = np.array(watermask, dtype='float32')
-        
-        #=====check if data is in range========================================
-        rangeIndex = ((latcloud<-90.) | (latcloud > 90.) | (loncloud < -180.) | (loncloud > 180.))
-        latcloud[rangeIndex] = np.nan
-        loncloud[rangeIndex] = np.nan
-        cloud[rangeIndex] = np.nan
-        viewcloud[rangeIndex] = np.nan
-        watermask[rangeIndex] = np.nan
-        if np.nansum(cloud)==0: # check if there is any data
-            continue
-
-        projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
-        area_id ='tile'
-        proj_id = 'latlon'
-        description = 'lat lon grid'
-
-        swath_def = geometry.SwathDefinition(lons=loncloud, lats=latcloud)
-        x_size = 3750
-        y_size = 3750
-        area_extent = (LLlon,LLlat,URlon,URlat)
-        area_def = utils.get_area_def(area_id, description, proj_id, projection,
-                                                   x_size, y_size, area_extent)
-        swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
-        rows_per_scan = 16
-        try: # if there are no valid pixels in the region move on
-            num_valid_points, gridded_cloud = fornav(cols, rows, area_def, cloud, rows_per_scan=rows_per_scan)
-        except:
-            gridded_cloud = np.tile(-9999.,[y_size,x_size])
-            continue
-        try:
-            num_valid_points, gridded_cloudview = fornav(cols, rows, area_def, viewcloud, rows_per_scan=rows_per_scan)
-        except:
-            gridded_cloudview = np.tile(-9999.,[y_size,x_size])
-            continue        
-        try:
-            num_valid_points, gridded_watermask = fornav(cols, rows, area_def, watermask, rows_per_scan=rows_per_scan)
-        except:
-            gridded_watermask = np.tile(-9999.,[y_size,x_size])
-            continue
-        
-        gridded_cloud[gridded_cloudview>60.0]=np.nan
-        gridded_watermask[gridded_cloudview>60.0]=np.nan
-        #stack data
-        if orbitcount==1:
-            cloud_stack = gridded_cloud
-            cloudview_stack = gridded_cloudview
-            watermask_stack = gridded_watermask
-        else:
+                start=filename.find('_t')
+                out_time=filename[start+2:start+6]
+                
+                if count ==1:
+                    latcloud = np.array(lat_array,'float32')
+                    loncloud=np.array(lon_array,'float32')
+                    cloud=np.array(data_array,'float32')
+                    viewcloud=np.array(view_array,'float32')
+                else:
+                    latcloud = np.vstack((latcloud,np.array(lat_array,'float32')))
+                    loncloud = np.vstack((loncloud,np.array(lon_array,'float32')))
+                    cloud = np.vstack((cloud,np.array(data_array,'float32')))
+                    viewcloud = np.vstack((viewcloud,np.array(view_array,'float32')))
+                    
+                # load water mask===========
+                f=h5py.File(cloudfile,'r')
+                g=h5py.File(cloudgeofile,'r')
+                if datet > datetime.datetime(2017,3,8,0,0,0):
+                    data_array = f['/All_Data/VIIRS-CM-EDR_All/QF2_VIIRSCMEDR'][()]
+                else:
+                    data_array = f['/All_Data/VIIRS-CM-IP_All/QF2_VIIRSCMIP'][()]
+                lat_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Latitude'][()]
+                lon_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/Longitude'][()]
+                view_array = g['/All_Data/VIIRS-MOD-GEO-TC_All/SatelliteZenithAngle'][()]
+                
+                start=filename.find('_t')
+                out_time=filename[start+2:start+6]
+                
+                if count ==1:
+                    watermask=np.array(data_array,'float32')
+                else:
+                    watermask = np.vstack((watermask,np.array(data_array,'float32')))
+                    
+                #  Load BT data=============
+                f=h5py.File(filename,'r')
+                g=h5py.File(geofile,'r')
+                data_array = f['/All_Data/VIIRS-I5-SDR_All/BrightnessTemperature'][()]
+                lat_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Latitude'][()]
+                lon_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/Longitude'][()]
+                view_array = g['/All_Data/VIIRS-IMG-GEO-TC_All/SatelliteZenithAngle'][()]
+                if count ==1:
+                    lat=np.array(lat_array,'float32')
+                    lon=np.array(lon_array,'float32')
+                    data=np.array(data_array,'float32')
+                    view=np.array(view_array,'float32')
+                else:
+                    lat = np.vstack((lat,np.array(lat_array,'float32')))
+                    lon = np.vstack((lon,np.array(lon_array,'float32')))
+                    data = np.vstack((data,np.array(data_array,'float32')))
+                    view = np.vstack((view,np.array(view_array,'float32')))
+            #====cloud gridding=====================
+            if len(validFiles) == 0:
+                continue
+            orbitcount+=1
+            cloudOrig=cloud.copy()
+            #get 2-3 bits
+            cloud=np.array(cloud,'uint8')
+            cloud = np.reshape(cloud,[cloud.size, 1])
+            b = np.unpackbits(cloud, axis=1)
+            cloud = np.sum(b[:,4:6],axis=1)
+            cloud = np.reshape(cloud,[cloudOrig.shape[0],cloudOrig.shape[1]])
+            cloud = np.array(cloud, dtype='float32')
+            mask = (cloudOrig==0.)
+            cloud[mask]=np.nan
+            viewcloud[mask]=np.nan
+            #====get water mask from bits===========
+            
+            watermask=np.array(watermask,'uint8')
+            watermask = np.reshape(watermask,[watermask.size, 1])
+            b = np.unpackbits(watermask, axis=1)
+            watermask = np.sum(b[:,5:7],axis=1)
+            watermask = np.reshape(watermask,[cloudOrig.shape[0],cloudOrig.shape[1]])
+            watermask = np.array(watermask, dtype='float32')
+            
+            #=====check if data is in range========================================
+            rangeIndex = ((latcloud<-90.) | (latcloud > 90.) | (loncloud < -180.) | (loncloud > 180.))
+            latcloud[rangeIndex] = np.nan
+            loncloud[rangeIndex] = np.nan
+            cloud[rangeIndex] = np.nan
+            viewcloud[rangeIndex] = np.nan
+            watermask[rangeIndex] = np.nan
+            if np.nansum(cloud)==0: # check if there is any data
+                continue
+    
+            projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
+            area_id ='tile'
+            proj_id = 'latlon'
+            description = 'lat lon grid'
+    
+            swath_def = geometry.SwathDefinition(lons=loncloud, lats=latcloud)
+            x_size = 3750
+            y_size = 3750
+            area_extent = (LLlon,LLlat,URlon,URlat)
+            area_def = utils.get_area_def(area_id, description, proj_id, projection,
+                                                       x_size, y_size, area_extent)
+            swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
+            rows_per_scan = 16
+            try: # if there are no valid pixels in the region move on
+                num_valid_points, gridded_cloud = fornav(cols, rows, area_def, cloud, rows_per_scan=rows_per_scan)
+            except:
+                gridded_cloud = np.tile(-9999.,[y_size,x_size])
+                continue
+            try:
+                num_valid_points, gridded_cloudview = fornav(cols, rows, area_def, viewcloud, rows_per_scan=rows_per_scan)
+            except:
+                gridded_cloudview = np.tile(-9999.,[y_size,x_size])
+                continue        
+            try:
+                num_valid_points, gridded_watermask = fornav(cols, rows, area_def, watermask, rows_per_scan=rows_per_scan)
+            except:
+                gridded_watermask = np.tile(-9999.,[y_size,x_size])
+                continue
+            
+            gridded_cloud[gridded_cloudview>60.0]=np.nan
+            gridded_watermask[gridded_cloudview>60.0]=np.nan
+            #stack data
+#            if orbitcount<=1:
+#                cloud_stack = gridded_cloud
+#                cloudview_stack = gridded_cloudview
+#                watermask_stack = gridded_watermask
+#            else:
             cloud_stack = np.dstack((cloud_stack,gridded_cloud))
             cloudview_stack = np.dstack((cloudview_stack,gridded_cloudview))
             watermask_stack = np.dstack((watermask_stack,gridded_watermask))
+                
+            #==LST gridding===========================
+            mask = (data>65527.)
+            data[mask]=np.nan
+            view[mask]=np.nan
+            #=====check if data is in range========================================
+            rangeIndex = ((lat<-90.) | (lat > 90.) | (lon < -180.) | (lon > 180.))
+            lat[rangeIndex] = np.nan
+            lon[rangeIndex] = np.nan
+            data[rangeIndex] = np.nan
+            view[rangeIndex] = np.nan
+            if np.nansum(data)==0: # check if there is any data
+                continue
+    
+            projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
+            area_id ='tile'
+            proj_id = 'latlon'
+            description = 'lat lon grid'
+    
+            swath_def = geometry.SwathDefinition(lons=lon, lats=lat)
+            x_size = 3750
+            y_size = 3750
+            area_extent = (LLlon,LLlat,URlon,URlat)
+            area_def = utils.get_area_def(area_id, description, proj_id, projection,
+                                                       x_size, y_size, area_extent)
+            swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
+            rows_per_scan = 32
+            try: # if there are no valid pixels in the region move on
+                num_valid_points, gridded_data = fornav(cols, rows, area_def, data, rows_per_scan=rows_per_scan)
+            except:
+                gridded_data = np.tile(-9999.,[y_size,x_size])
+                continue
+            try:
+                num_valid_points, gridded_view = fornav(cols, rows, area_def, view, rows_per_scan=rows_per_scan)
+            except:
+                gridded_view = np.tile(-9999.,[y_size,x_size])
+                continue
             
-        #==LST gridding===========================
-        mask = (data>65527.)
-        data[mask]=np.nan
-        view[mask]=np.nan
-        #=====check if data is in range========================================
-        rangeIndex = ((lat<-90.) | (lat > 90.) | (lon < -180.) | (lon > 180.))
-        lat[rangeIndex] = np.nan
-        lon[rangeIndex] = np.nan
-        data[rangeIndex] = np.nan
-        view[rangeIndex] = np.nan
-        if np.nansum(data)==0: # check if there is any data
-            continue
-
-        projection = '+proj=longlat +ellps=WGS84 +datum=WGS84'
-        area_id ='tile'
-        proj_id = 'latlon'
-        description = 'lat lon grid'
-
-        swath_def = geometry.SwathDefinition(lons=lon, lats=lat)
-        x_size = 3750
-        y_size = 3750
-        area_extent = (LLlon,LLlat,URlon,URlat)
-        area_def = utils.get_area_def(area_id, description, proj_id, projection,
-                                                   x_size, y_size, area_extent)
-        swath_points_in_grid, cols, rows = ll2cr(swath_def, area_def, copy=False)
-        rows_per_scan = 32
-        try: # if there are no valid pixels in the region move on
-            num_valid_points, gridded_data = fornav(cols, rows, area_def, data, rows_per_scan=rows_per_scan)
-        except:
-            gridded_data = np.tile(-9999.,[y_size,x_size])
-            continue
-        try:
-            num_valid_points, gridded_view = fornav(cols, rows, area_def, view, rows_per_scan=rows_per_scan)
-        except:
-            gridded_view = np.tile(-9999.,[y_size,x_size])
-            continue
-        
-        lst = gridded_data*0.00351+150.0
-        lst[gridded_view>60.0]=-9999.
-        #stack data
-        if orbitcount==1:
-            lst_stack = lst
-            view_stack = gridded_view
-        else:
+            lst = gridded_data*0.00351+150.0
+            lst[gridded_view>60.0]=-9999.
+            #stack data
+#            if orbitcount<=1:
+#                lst_stack = lst
+#                view_stack = gridded_view
+#            else:
             lst_stack = np.dstack((lst_stack,lst))
             view_stack = np.dstack((view_stack,gridded_view))
-
-    #=========CLOUD:doing angle clearing======================================
-    if orbitcount > 0:
-        fileProcessed+=1
-        if cloudview_stack.ndim == 2:  
-            dims = [cloudview_stack.shape[0],cloudview_stack.shape[0],1]
-        else:
-            dims = cloudview_stack.shape
+    
+        #=========CLOUD:doing angle clearing======================================
+        if orbitcount > 0:
+            fileProcessed+=1
+            if cloudview_stack.ndim == 2:  
+                dims = [cloudview_stack.shape[0],cloudview_stack.shape[0],1]
+            else:
+                dims = cloudview_stack.shape
+                
+            aa = np.reshape(cloudview_stack,[dims[0]*dims[1],dims[2]])
+            aa[np.isnan(aa)]=9999.
+            indcol = np.argmin(aa,axis=1)
+            indrow = range(0,len(indcol))
+            bb = np.reshape(cloud_stack,[dims[0]*dims[1],dims[2]])
+            cloud = bb[indrow,indcol]
+            cloud = np.reshape(cloud,[3750,3750])
+            #=========WATERMASK:doing angle clearing======================================
+            if watermask_stack.ndim == 2:  
+                dims = [watermask_stack.shape[0],watermask_stack.shape[0],1]
+            else:
+                dims = watermask_stack.shape     
+            aa = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
+            aa[np.isnan(aa)]=9999.
+            indcol = np.argmin(aa,axis=1)
+            indrow = range(0,len(indcol))
+            bb = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
+            watermask = bb[indrow,indcol]
+            watermask = np.reshape(watermask,[3750,3750])
+            #=========BT:doing angle and cloud clearing================================     
+            aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+            aa[np.isnan(aa)]=9999.
+            indcol = np.argmin(aa,axis=1)
+            indrow = range(0,len(indcol))
+            bb = np.reshape(lst_stack,[dims[0]*dims[1],dims[2]])
+            lst = bb[indrow,indcol]
+            lst = np.reshape(lst,[3750,3750])
+            lst = np.array(lst,dtype='Float32')
+        #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
+            out_bt_fn = os.path.join(tile_path,"merged_night_bt_%s_T%03d_%s.tif" % (date,tile,out_time))
+            lst[cloud>1]=-9999.
+            lst[(watermask==1) | (watermask==2)]=-9999.
+            writeArray2Tiff(lst,ALEXIres,inUL,inProjection,out_bt_fn,gdal.GDT_Float32)
+    #        lst.tofile(out_bt_fn)
+    #        convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
             
-        aa = np.reshape(cloudview_stack,[dims[0]*dims[1],dims[2]])
-        aa[np.isnan(aa)]=9999.
-        indcol = np.argmin(aa,axis=1)
-        indrow = range(0,len(indcol))
-        bb = np.reshape(cloud_stack,[dims[0]*dims[1],dims[2]])
-        cloud = bb[indrow,indcol]
-        cloud = np.reshape(cloud,[3750,3750])
-        #=========WATERMASK:doing angle clearing======================================
-        if watermask_stack.ndim == 2:  
-            dims = [watermask_stack.shape[0],watermask_stack.shape[0],1]
-        else:
-            dims = watermask_stack.shape     
-        aa = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
-        aa[np.isnan(aa)]=9999.
-        indcol = np.argmin(aa,axis=1)
-        indrow = range(0,len(indcol))
-        bb = np.reshape(watermask_stack,[dims[0]*dims[1],dims[2]])
-        watermask = bb[indrow,indcol]
-        watermask = np.reshape(watermask,[3750,3750])
-        #=========BT:doing angle and cloud clearing================================     
-        aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
-        aa[np.isnan(aa)]=9999.
-        indcol = np.argmin(aa,axis=1)
-        indrow = range(0,len(indcol))
-        bb = np.reshape(lst_stack,[dims[0]*dims[1],dims[2]])
-        lst = bb[indrow,indcol]
-        lst = np.reshape(lst,[3750,3750])
-        lst = np.array(lst,dtype='Float32')
-    #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
-        out_bt_fn = os.path.join(tile_path,"merged_night_bt_%s_T%03d_%s.tif" % (date,tile,out_time))
-        lst[cloud>1]=-9999.
-        lst[(watermask==1) | (watermask==2)]=-9999.
-        writeArray2Tiff(lst,ALEXIres,inUL,inProjection,out_bt_fn,gdal.GDT_Float32)
-#        lst.tofile(out_bt_fn)
-#        convertBin2tif(out_bt_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
-        
-        #=========VIEW:doing angle and cloud clearing================================     
-        aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
-        aa[np.isnan(aa)]=9999.
-        indcol = np.argmin(aa,axis=1)
-        indrow = range(0,len(indcol))
-        bb = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
-        view = bb[indrow,indcol]
-        view = np.reshape(view,[3750,3750])
-        view = np.array(view,dtype='Float32')
-    #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
-        out_view_fn = os.path.join(tile_path,"merged_night_view_%s_T%03d_%s.tif" % (date,tile,out_time))
-        view[cloud>1]=np.nan
-        view[(watermask==1) | (watermask==2)]=-9999.
-#        view.tofile(out_view_fn)
-#        convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
-        writeArray2Tiff(view,ALEXIres,inUL,inProjection,out_view_fn,gdal.GDT_Float32)
-    return (fileProcessed==2)
+            #=========VIEW:doing angle and cloud clearing================================     
+            aa = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+            aa[np.isnan(aa)]=9999.
+            indcol = np.argmin(aa,axis=1)
+            indrow = range(0,len(indcol))
+            bb = np.reshape(view_stack,[dims[0]*dims[1],dims[2]])
+            view = bb[indrow,indcol]
+            view = np.reshape(view,[3750,3750])
+            view = np.array(view,dtype='Float32')
+        #    out_bt_fn = os.path.join(tile_base_path,"bt.dat" )
+            out_view_fn = os.path.join(tile_path,"merged_night_view_%s_T%03d_%s.tif" % (date,tile,out_time))
+            view[cloud>1]=np.nan
+            view[(watermask==1) | (watermask==2)]=-9999.
+    #        view.tofile(out_view_fn)
+    #        convertBin2tif(out_view_fn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+            writeArray2Tiff(view,ALEXIres,inUL,inProjection,out_view_fn,gdal.GDT_Float32)
+    else:
+        fileProcessed+=1 
+    print("done GRIDDING tile:T%03d!!!" % tile)
+    print("fileProcessed:%d" % fileProcessed)
+    return (fileProcessed==2) 
     
 def atmosCorrectPython(tile,year,doy):
     tile_path = os.path.join(tile_base_path,"T%03d" % tile) 
@@ -1472,245 +1487,268 @@ def atmosCorrectPython(tile,year,doy):
     
     #=========================Day==============================================
     #==========================================================================
-    out_bt_fn = glob.glob(os.path.join(tile_path,"merged_day_bt_%s_T%03d*.tif" % (date,tile)))
-    out_view_fn1 = glob.glob(os.path.join(tile_path,"merged_day_view_%s_T%03d*.tif" % (date,tile)))
-    out_bt_fn = out_bt_fn[0]
-    out_view_fn1 = out_view_fn1[0]
-    time_str = out_bt_fn.split(os.sep)[-1].split("_")[5].split(".")[0]
-    grab_time = getGrabTime(int(time_str))
-    #===========use forecast hour==============================================
-    if (grab_time)==2400:
-        time = 0000
-    else:
-        time = grab_time
-    hr,forcastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
-    cfsr_date = "%d%03d" % (year,cfsr_doy)
-    cfsr_tile_path = os.path.join(CFSR_path,"%d" % year,"%03d" % cfsr_doy)
-    
-    temp_prof_fn = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (cfsr_date,time))
-    spfh_prof_fn = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (cfsr_date,time))
-    sfc_temp_fn  = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (cfsr_date,time))
-    sfc_pres_fn = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (cfsr_date,time))
-    sfc_spfh_fn = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (cfsr_date,time))
-    overpass_corr_cache = os.path.join(static_path,"OVERPASS_OFFSET_CORRECTION")
-    ztime_fn = os.path.join(overpass_corr_cache,"DAY_ZTIME_T%03d.tif" % tile)
-    g = gdal.Open(ztime_fn)
-    dztime = g.ReadAsArray()
-    dtrad_cache = os.path.join(static_path,"dtrad_avg")
-    dtrad_fn =os.path.join(dtrad_cache,"DTRAD_T%03d_2014%s.tif" % (tile,rday))
-    g = gdal.Open(dtrad_fn)
-    dtrad = g.ReadAsArray()
-
-    #==============preparing data==============================================
-    g = gdal.Open(out_bt_fn)
-    day_lst = g.ReadAsArray()
-#    day_lst = np.fromfile(out_bt_fn, dtype=np.float32)
-#    day_lst= day_lst.reshape([3750,3750])
-    
-    ###=====python version=====================================================
-    ctime = int(time_str)/100.
-    tdiff_day=abs(ctime-dztime)
-    tindex1=np.array(tdiff_day, dtype=int)
-    tindex2=tindex1+1
-    tindex1[np.where((day_lst==-9999.) | (dtrad==-9999.))]=0
-    tindex2[np.where((day_lst==-9999.) | (dtrad==-9999.))]=0
-    w2=(tdiff_day-tindex1)
-    w1=(1.0-w2)
-    c1 = np.empty([3750,3750])
-    c2 = np.empty([3750,3750])
-    day_corr = np.empty([3750,3750])
-    for i in range(1,len(day_minus_coeff)-1):
-        c1[np.where(tindex1==i)]=day_minus_coeff[i]+(day_minus_b[i]*dtrad[np.where(tindex1==i)])
-        c2[np.where(tindex2==i+1)]=day_minus_coeff[i+1]+(day_minus_b[i+1]*dtrad[np.where(tindex2==i+1)])
-        day_corr[np.where(tindex1==i)] = day_lst[np.where(tindex1==i)]+(c1[np.where(tindex1==i)]*w1[np.where(tindex1==i)]+c2[np.where(tindex1==i)]*w2[np.where(tindex1==i)])
-    day_corr[np.where(tindex1<1)] = day_lst[np.where(tindex1<1)]+c2[np.where(tindex1<1)]*w2[np.where(tindex1<1)]
-    day_corr[np.where(dtrad==-9999.)]=-9999.
-    day_corr = np.array(np.flipud(day_corr),dtype='Float32')
-
-#    outfn = os.path.join(tile_path,"tindex1.tif")
-#    writeArray2Tiff(tindex1,ALEXIres,inUL,inProjection,outfn,gdal.GDT_Float32)
-
-    
-    #=======run atmospheric correction=========================================
-    g = gdal.Open(out_view_fn1)
-    view = g.ReadAsArray()
-    view1 = np.reshape(view,[view.size,1])
-#    view = np.fromfile(out_view_fn1, dtype=np.float32)
-#    view = view.reshape([3750,3750])
-    
-    spfh_prof = np.fromfile(spfh_prof_fn, dtype=np.float32)
-    spfh_prof = spfh_prof.reshape([21,720,1440])
-    
-    temp_prof = np.fromfile(temp_prof_fn, dtype=np.float32)
-    temp_prof = temp_prof.reshape([21,720,1440])
-    
-    temp_prof1 = np.empty([21,720,1440])
-    for i in range(21):
-        temp_prof1[i,:,:] = np.flipud(np.squeeze(temp_prof[i,:,:]))
-        
-    spfh_prof1 = np.empty([21,720,1440])
-    for i in range(21):
-        spfh_prof1[i,:,:] = np.flipud(np.squeeze(spfh_prof[i,:,:]))
-    trad = day_corr
-    trad = day_lst
-    trad = np.reshape(trad,[3750*3750,1])
-    
-    sfc_temp = np.fromfile(sfc_temp_fn, dtype=np.float32)
-    sfc_temp = np.flipud(sfc_temp.reshape([720,1440]))   
-    sfc_pres = np.fromfile(sfc_pres_fn, dtype=np.float32)
-    sfc_pres = np.flipud(sfc_pres.reshape([720,1440]))    
-    sfc_spfh = np.fromfile(sfc_spfh_fn, dtype=np.float32)
-    sfc_spfh = np.flipud(sfc_spfh.reshape([720,1440]))
-    sfc_temp = np.reshape(sfc_temp,[720*1440,1])
-    sfc_pres = np.reshape(sfc_pres,[720*1440,1])
-    sfc_spfh = np.reshape(sfc_spfh,[720*1440,1])    
-    temp_prof = np.reshape(temp_prof1,[21,720*1440]).T
-    spfh_prof = np.reshape(spfh_prof1,[21,720*1440]).T    
-#    view1 = np.reshape(view,[3750*3750,1])
-    
-    pres = np.array([1000,975,950,925,900,850,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100])
-    ta=temp_prof/(1000/pres)**0.286
-    ei=spfh_prof*temp_prof/(.378*spfh_prof+.622)
-    anv=873.6
-    epsln=0.98
-    emis = np.empty([720*1440,21])
-    tau = np.empty([720*1440,21])
-    for i in range(20):
-        emis[:,i]=0.5*(planck(ta[:,i],anv)+planck(ta[:,i+1],anv))
-        tau[:,i]=(pres[i]-pres[i+1])*(dtaudp(anv,ta[:,i],emis[:,i],pres[i])+
-           dtaudp(anv,ta[:,i+1],emis[:,i+1],pres[i+1]) +4.*
-                  dtaudp(anv,(ta[:,i]+ta[:,i+1])/2.,(emis[:,i]+emis[:,i+1])/2.,
-                                    (pres[i]-pres[i+1])/2.))/6
-    
-    optd = np.sum(tau,axis=1)
-    cs=np.cos(np.deg2rad(view1)/np.deg2rad(57.29))
-    optd = np.array(optd,dtype=np.float32)
-    optd = np.reshape(optd,[720,1440])
-    optd = optd[icormat,jcormat]
-    a = -optd/cs
-    trans=np.exp(a)
-        
-    #=========angular invariant sky================
-    cs=np.cos(np.deg2rad(0.)/np.deg2rad(57.29))
-    a = -tau[:,0]/cs
-    sky1 = np.empty([720*1440,21])
-    sky1[:,1]=emis[:,0]*(1.0-np.exp(a))
-    
-    for i in range(20):
-        sky1[:,i]=emis[:,i-1]+(sky1[:,i-1]-emis[:,i-1])*np.exp(-tau[:,i-1]/cs)
-    
-    sky1 = np.reshape(sky1,[21,720,1440])
-    sky1 = np.squeeze(sky1[:,icormat,jcormat]).T
-    sky1 = np.reshape(sky1,[3750*3750,21])
-    #====final results=============================
-    grndrad1=(planck(trad[:,0],anv)-sky1[:,20]*(1.0+trans[:,0]*(1.0-epsln)))
-    
-    trad11=invplanck(grndrad1/epsln,anv)
-    trad11 = np.reshape(trad11,[3750,3750])
-    trad11[trad11<0]=-9999.
-    
     outfn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.tif" % (date,tile))
-    trad11 = np.array(trad11, dtype=np.float32)
-#    trad11.tofile(outfn)
-    writeArray2Tiff(trad11,ALEXIres,inUL,inProjection,outfn,gdal.GDT_Float32)
+    if not os.path.exists(outfn):
+        out_bt_fn = glob.glob(os.path.join(tile_path,"merged_day_bt_%s_T%03d*.tif" % (date,tile)))
+        out_view_fn1 = glob.glob(os.path.join(tile_path,"merged_day_view_%s_T%03d*.tif" % (date,tile)))
+        out_bt_fn = out_bt_fn[0]
+        out_view_fn1 = out_view_fn1[0]
+        time_str = out_bt_fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+        grab_time = getGrabTime(int(time_str))
+        #===========use forecast hour==============================================
+        if (grab_time)==2400:
+            time = 0000
+        else:
+            time = grab_time
+        hr,forcastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+        cfsr_date = "%d%03d" % (year,cfsr_doy)
+        cfsr_tile_path = os.path.join(CFSR_path,"%d" % year,"%03d" % cfsr_doy)
+        
+        temp_prof_fn = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (cfsr_date,time))
+        spfh_prof_fn = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (cfsr_date,time))
+        sfc_temp_fn  = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (cfsr_date,time))
+        sfc_pres_fn = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (cfsr_date,time))
+        sfc_spfh_fn = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (cfsr_date,time))
+        overpass_corr_cache = os.path.join(static_path,"OVERPASS_OFFSET_CORRECTION")
+        ztime_fn = os.path.join(overpass_corr_cache,"DAY_ZTIME_T%03d.tif" % tile)
+        g = gdal.Open(ztime_fn)
+        dztime = g.ReadAsArray()
+        dtrad_cache = os.path.join(static_path,"dtrad_avg")
+        dtrad_fn =os.path.join(dtrad_cache,"DTRAD_T%03d_2014%03d.tif" % (tile,rday))
+        g = gdal.Open(dtrad_fn)
+        dtrad = g.ReadAsArray()
+    
+        #==============preparing data==============================================
+        g = gdal.Open(out_bt_fn)
+        day_lst = g.ReadAsArray()
+    #    day_lst = np.fromfile(out_bt_fn, dtype=np.float32)
+    #    day_lst= day_lst.reshape([3750,3750])
+        
+        ###=====python version=====================================================
+        ctime = int(time_str)/100.
+        tdiff_day=abs(ctime-dztime)
+        tindex1=np.array(tdiff_day, dtype=int)
+        tindex2=tindex1+1
+        tindex1[np.where((day_lst==-9999.) | (dtrad==-9999.))]=0
+        tindex2[np.where((day_lst==-9999.) | (dtrad==-9999.))]=0
+        w2=(tdiff_day-tindex1)
+        w1=(1.0-w2)
+        c1 = np.empty([3750,3750])
+        c2 = np.empty([3750,3750])
+        day_corr = np.empty([3750,3750])
+        for i in range(1,len(day_minus_coeff)-1):
+            c1[np.where(tindex1==i)]=day_minus_coeff[i]+(day_minus_b[i]*dtrad[np.where(tindex1==i)])
+            c2[np.where(tindex2==i+1)]=day_minus_coeff[i+1]+(day_minus_b[i+1]*dtrad[np.where(tindex2==i+1)])
+            day_corr[np.where(tindex1==i)] = day_lst[np.where(tindex1==i)]+(c1[np.where(tindex1==i)]*w1[np.where(tindex1==i)]+c2[np.where(tindex1==i)]*w2[np.where(tindex1==i)])
+        day_corr[np.where(tindex1<1)] = day_lst[np.where(tindex1<1)]+c2[np.where(tindex1<1)]*w2[np.where(tindex1<1)]
+        day_corr[np.where(dtrad==-9999.)]=-9999.
+        day_corr = np.array(np.flipud(day_corr),dtype='Float32')
+    
+    #    outfn = os.path.join(tile_path,"tindex1.tif")
+    #    writeArray2Tiff(tindex1,ALEXIres,inUL,inProjection,outfn,gdal.GDT_Float32)
+    
+        
+        #=======run atmospheric correction=========================================
+        g = gdal.Open(out_view_fn1)
+        view = g.ReadAsArray()
+        view1 = np.reshape(view,[view.size,1])
+    #    view = np.fromfile(out_view_fn1, dtype=np.float32)
+    #    view = view.reshape([3750,3750])
+        
+        spfh_prof = np.fromfile(spfh_prof_fn, dtype=np.float32)
+        spfh_prof = spfh_prof.reshape([21,720,1440])
+        
+        temp_prof = np.fromfile(temp_prof_fn, dtype=np.float32)
+        temp_prof = temp_prof.reshape([21,720,1440])
+        
+        temp_prof1 = np.empty([21,720,1440])
+        for i in range(21):
+            temp_prof1[i,:,:] = np.flipud(np.squeeze(temp_prof[i,:,:]))
+            
+        spfh_prof1 = np.empty([21,720,1440])
+        for i in range(21):
+            spfh_prof1[i,:,:] = np.flipud(np.squeeze(spfh_prof[i,:,:]))
+        trad = day_corr
+        trad = day_lst
+        trad = np.reshape(trad,[3750*3750,1])
+        
+        sfc_temp = np.fromfile(sfc_temp_fn, dtype=np.float32)
+        sfc_temp = np.flipud(sfc_temp.reshape([720,1440]))   
+        sfc_pres = np.fromfile(sfc_pres_fn, dtype=np.float32)
+        sfc_pres = np.flipud(sfc_pres.reshape([720,1440]))    
+        sfc_spfh = np.fromfile(sfc_spfh_fn, dtype=np.float32)
+        sfc_spfh = np.flipud(sfc_spfh.reshape([720,1440]))
+        sfc_temp = np.reshape(sfc_temp,[720*1440,1])
+        sfc_pres = np.reshape(sfc_pres,[720*1440,1])
+        sfc_spfh = np.reshape(sfc_spfh,[720*1440,1])    
+        temp_prof = np.reshape(temp_prof1,[21,720*1440]).T
+        spfh_prof = np.reshape(spfh_prof1,[21,720*1440]).T    
+    #    view1 = np.reshape(view,[3750*3750,1])
+        
+        pres = np.array([1000,975,950,925,900,850,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100])
+        ta=temp_prof/(1000/pres)**0.286
+        ei=spfh_prof*temp_prof/(.378*spfh_prof+.622)
+        anv=873.6
+        epsln=0.98
+        emis = np.empty([720*1440,21])
+        tau = np.empty([720*1440,21])
+        for i in range(20):
+            emis[:,i]=0.5*(planck(ta[:,i],anv)+planck(ta[:,i+1],anv))
+            tau[:,i]=(pres[i]-pres[i+1])*(dtaudp(anv,ta[:,i],emis[:,i],pres[i])+
+               dtaudp(anv,ta[:,i+1],emis[:,i+1],pres[i+1]) +4.*
+                      dtaudp(anv,(ta[:,i]+ta[:,i+1])/2.,(emis[:,i]+emis[:,i+1])/2.,
+                                        (pres[i]-pres[i+1])/2.))/6
+        
+        optd = np.sum(tau,axis=1)
+        cs=np.cos(np.deg2rad(view1)/np.deg2rad(57.29))
+        optd = np.array(optd,dtype=np.float32)
+        optd = np.reshape(optd,[720,1440])
+        optd = optd[icormat,jcormat]
+        a = -optd/cs
+        trans=np.exp(a)
+            
+        #=========angular invariant sky================
+        cs=np.cos(np.deg2rad(0.)/np.deg2rad(57.29))
+        a = -tau[:,0]/cs
+        sky1 = np.empty([720*1440,21])
+        sky1[:,1]=emis[:,0]*(1.0-np.exp(a))
+        
+        for i in range(20):
+            sky1[:,i]=emis[:,i-1]+(sky1[:,i-1]-emis[:,i-1])*np.exp(-tau[:,i-1]/cs)
+        
+        sky1 = np.reshape(sky1,[21,720,1440])
+        sky1 = np.squeeze(sky1[:,icormat,jcormat]).T
+        sky1 = np.reshape(sky1,[3750*3750,21])
+        #====final results=============================
+        grndrad1=(planck(trad[:,0],anv)-sky1[:,20]*(1.0+trans[:,0]*(1.0-epsln)))
+        
+        trad11=invplanck(grndrad1/epsln,anv)
+        trad11 = np.reshape(trad11,[3750,3750])
+        trad11[trad11<0]=-9999.
+        
+        outfn = os.path.join(tile_path,"FINAL_DAY_LST_%s_T%03d.tif" % (date,tile))
+        trad11 = np.array(trad11, dtype=np.float32)
+    #    trad11.tofile(outfn)
+        writeArray2Tiff(trad11,ALEXIres,inUL,inProjection,outfn,gdal.GDT_Float32)
     #======Night===============================================================
     #==========================================================================
-    out_bt_fn = glob.glob(os.path.join(tile_path,"merged_night_bt_%s_T%03d*.tif" % (date,tile)))
-    out_view_fn1 = glob.glob(os.path.join(tile_path,"merged_night_view_%s_T%03d*.tif" % (date,tile)))
-    out_bt_fn = out_bt_fn[0]
-    out_view_fn1 = out_view_fn1[0]
-    #=======run atmospheric correction=========================================
-#    shutil.copyfile(out_bt_fn,trad_fn)
-    g = gdal.Open(out_bt_fn)
-    trad = g.ReadAsArray()
-    trad = np.reshape(trad,[trad.size,1])
-#    bt = np.fromfile(out_bt_fn, dtype=np.float32)
-#    trad = bt.reshape([3750,3750])
-#    trad = np.reshape(trad,[3750*3750,1])
-
-
-#=======run atmospheric correction=========================================
-    g = gdal.Open(out_view_fn1)
-    view = g.ReadAsArray()
-    view1 = np.reshape(view,[view.size,1])
-#    view = np.fromfile(out_view_fn1, dtype=np.float32)
-#    view = view.reshape([3750,3750])
-    
-    spfh_prof = np.fromfile(spfh_prof_fn, dtype=np.float32)
-    spfh_prof = spfh_prof.reshape([21,720,1440])
-    
-    temp_prof = np.fromfile(temp_prof_fn, dtype=np.float32)
-    temp_prof = temp_prof.reshape([21,720,1440])
-    
-    temp_prof1 = np.empty([21,720,1440])
-    for i in range(21):
-        temp_prof1[i,:,:] = np.flipud(np.squeeze(temp_prof[i,:,:]))
-        
-    spfh_prof1 = np.empty([21,720,1440])
-    for i in range(21):
-        spfh_prof1[i,:,:] = np.flipud(np.squeeze(spfh_prof[i,:,:]))
-    
-    sfc_temp = np.fromfile(sfc_temp_fn, dtype=np.float32)
-    sfc_temp = np.flipud(sfc_temp.reshape([720,1440]))   
-    sfc_pres = np.fromfile(sfc_pres_fn, dtype=np.float32)
-    sfc_pres = np.flipud(sfc_pres.reshape([720,1440]))    
-    sfc_spfh = np.fromfile(sfc_spfh_fn, dtype=np.float32)
-    sfc_spfh = np.flipud(sfc_spfh.reshape([720,1440]))
-    sfc_temp = np.reshape(sfc_temp,[720*1440,1])
-    sfc_pres = np.reshape(sfc_pres,[720*1440,1])
-    sfc_spfh = np.reshape(sfc_spfh,[720*1440,1])    
-    temp_prof = np.reshape(temp_prof1,[21,720*1440]).T
-    spfh_prof = np.reshape(spfh_prof1,[21,720*1440]).T    
-#    view1 = np.reshape(view,[3750*3750,1])
-    
-    pres = np.array([1000,975,950,925,900,850,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100])
-    ta=temp_prof/(1000/pres)**0.286
-    ei=spfh_prof*temp_prof/(.378*spfh_prof+.622)
-    anv=873.6
-    epsln=0.98
-    emis = np.empty([720*1440,21])
-    tau = np.empty([720*1440,21])
-    for i in range(20):
-        emis[:,i]=0.5*(planck(ta[:,i],anv)+planck(ta[:,i+1],anv))
-        tau[:,i]=(pres[i]-pres[i+1])*(dtaudp(anv,ta[:,i],emis[:,i],pres[i])+
-           dtaudp(anv,ta[:,i+1],emis[:,i+1],pres[i+1]) +4.*
-                  dtaudp(anv,(ta[:,i]+ta[:,i+1])/2.,(emis[:,i]+emis[:,i+1])/2.,
-                                    (pres[i]-pres[i+1])/2.))/6
-    
-    optd = np.sum(tau,axis=1)
-    cs=np.cos(np.deg2rad(view1)/np.deg2rad(57.29))
-    optd = np.array(optd,dtype=np.float32)
-    optd = np.reshape(optd,[720,1440])
-    optd = optd[icormat,jcormat]
-    a = -optd/cs
-    trans=np.exp(a)
-        
-    #=========angular invariant sky================
-    cs=np.cos(np.deg2rad(0.)/np.deg2rad(57.29))
-    a = -tau[:,0]/cs
-    sky1 = np.empty([720*1440,21])
-    sky1[:,1]=emis[:,0]*(1.0-np.exp(a))
-    
-    for i in range(20):
-        sky1[:,i]=emis[:,i-1]+(sky1[:,i-1]-emis[:,i-1])*np.exp(-tau[:,i-1]/cs)
-    
-    sky1 = np.reshape(sky1,[21,720,1440])
-    sky1 = np.squeeze(sky1[:,icormat,jcormat]).T
-    sky1 = np.reshape(sky1,[3750*3750,21])
-    #====final results=============================
-    grndrad1=(planck(trad[:,0],anv)-sky1[:,20]*(1.0+trans[:,0]*(1.0-epsln)))
-    
-    trad11=invplanck(grndrad1/epsln,anv)
-    trad11 = np.reshape(trad11,[3750,3750])
-    trad11[trad11<0]=-9999.
-    
     outfn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.tif" % (date,tile))
-    trad11 = np.array(trad11, dtype=np.float32)
-#    trad11.tofile(outfn)
-
-#    convertBin2tif(outfn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+    if not os.path.exists(outfn):
+        out_bt_fn = glob.glob(os.path.join(tile_path,"merged_night_bt_%s_T%03d*.tif" % (date,tile)))
+        out_view_fn1 = glob.glob(os.path.join(tile_path,"merged_night_view_%s_T%03d*.tif" % (date,tile)))
+        out_bt_fn = out_bt_fn[0]
+        out_view_fn1 = out_view_fn1[0]
+        time_str = out_bt_fn.split(os.sep)[-1].split("_")[5].split(".")[0]
+        grab_time = getGrabTime(int(time_str))
+        #===========use forecast hour==============================================
+        if (grab_time)==2400:
+            time = 0000
+        else:
+            time = grab_time
+        hr,forcastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+        cfsr_date = "%d%03d" % (year,cfsr_doy)
+        cfsr_tile_path = os.path.join(CFSR_path,"%d" % year,"%03d" % cfsr_doy)
+        
+        temp_prof_fn = os.path.join(cfsr_tile_path,"temp_profile_%s_%04d.dat" % (cfsr_date,time))
+        spfh_prof_fn = os.path.join(cfsr_tile_path,"spfh_profile_%s_%04d.dat" % (cfsr_date,time))
+        sfc_temp_fn  = os.path.join(cfsr_tile_path,"sfc_temp_%s_%04d.dat" % (cfsr_date,time))
+        sfc_pres_fn = os.path.join(cfsr_tile_path,"sfc_pres_%s_%04d.dat" % (cfsr_date,time))
+        sfc_spfh_fn = os.path.join(cfsr_tile_path,"sfc_spfh_%s_%04d.dat" % (cfsr_date,time))
+        #=======run atmospheric correction=========================================
+    #    shutil.copyfile(out_bt_fn,trad_fn)
+        g = gdal.Open(out_bt_fn)
+        trad = g.ReadAsArray()
+        trad = np.reshape(trad,[trad.size,1])
+    #    bt = np.fromfile(out_bt_fn, dtype=np.float32)
+    #    trad = bt.reshape([3750,3750])
+    #    trad = np.reshape(trad,[3750*3750,1])
     
-    writeArray2Tiff(trad11,ALEXIres,inUL,inProjection,outfn,gdal.GDT_Float32)
+    
+    #=======run atmospheric correction=========================================
+        g = gdal.Open(out_view_fn1)
+        view = g.ReadAsArray()
+        view1 = np.reshape(view,[view.size,1])
+    #    view = np.fromfile(out_view_fn1, dtype=np.float32)
+    #    view = view.reshape([3750,3750])
+        
+        spfh_prof = np.fromfile(spfh_prof_fn, dtype=np.float32)
+        spfh_prof = spfh_prof.reshape([21,720,1440])
+        
+        temp_prof = np.fromfile(temp_prof_fn, dtype=np.float32)
+        temp_prof = temp_prof.reshape([21,720,1440])
+        
+        temp_prof1 = np.empty([21,720,1440])
+        for i in range(21):
+            temp_prof1[i,:,:] = np.flipud(np.squeeze(temp_prof[i,:,:]))
+            
+        spfh_prof1 = np.empty([21,720,1440])
+        for i in range(21):
+            spfh_prof1[i,:,:] = np.flipud(np.squeeze(spfh_prof[i,:,:]))
+        
+        sfc_temp = np.fromfile(sfc_temp_fn, dtype=np.float32)
+        sfc_temp = np.flipud(sfc_temp.reshape([720,1440]))   
+        sfc_pres = np.fromfile(sfc_pres_fn, dtype=np.float32)
+        sfc_pres = np.flipud(sfc_pres.reshape([720,1440]))    
+        sfc_spfh = np.fromfile(sfc_spfh_fn, dtype=np.float32)
+        sfc_spfh = np.flipud(sfc_spfh.reshape([720,1440]))
+        sfc_temp = np.reshape(sfc_temp,[720*1440,1])
+        sfc_pres = np.reshape(sfc_pres,[720*1440,1])
+        sfc_spfh = np.reshape(sfc_spfh,[720*1440,1])    
+        temp_prof = np.reshape(temp_prof1,[21,720*1440]).T
+        spfh_prof = np.reshape(spfh_prof1,[21,720*1440]).T    
+    #    view1 = np.reshape(view,[3750*3750,1])
+        
+        pres = np.array([1000,975,950,925,900,850,800,750,700,650,600,550,500,450,400,350,300,250,200,150,100])
+        ta=temp_prof/(1000/pres)**0.286
+        ei=spfh_prof*temp_prof/(.378*spfh_prof+.622)
+        anv=873.6
+        epsln=0.98
+        emis = np.empty([720*1440,21])
+        tau = np.empty([720*1440,21])
+        for i in range(20):
+            emis[:,i]=0.5*(planck(ta[:,i],anv)+planck(ta[:,i+1],anv))
+            tau[:,i]=(pres[i]-pres[i+1])*(dtaudp(anv,ta[:,i],emis[:,i],pres[i])+
+               dtaudp(anv,ta[:,i+1],emis[:,i+1],pres[i+1]) +4.*
+                      dtaudp(anv,(ta[:,i]+ta[:,i+1])/2.,(emis[:,i]+emis[:,i+1])/2.,
+                                        (pres[i]-pres[i+1])/2.))/6
+        
+        optd = np.sum(tau,axis=1)
+        cs=np.cos(np.deg2rad(view1)/np.deg2rad(57.29))
+        optd = np.array(optd,dtype=np.float32)
+        optd = np.reshape(optd,[720,1440])
+        optd = optd[icormat,jcormat]
+        a = -optd/cs
+        trans=np.exp(a)
+            
+        #=========angular invariant sky================
+        cs=np.cos(np.deg2rad(0.)/np.deg2rad(57.29))
+        a = -tau[:,0]/cs
+        sky1 = np.empty([720*1440,21])
+        sky1[:,1]=emis[:,0]*(1.0-np.exp(a))
+        
+        for i in range(20):
+            sky1[:,i]=emis[:,i-1]+(sky1[:,i-1]-emis[:,i-1])*np.exp(-tau[:,i-1]/cs)
+        
+        sky1 = np.reshape(sky1,[21,720,1440])
+        sky1 = np.squeeze(sky1[:,icormat,jcormat]).T
+        sky1 = np.reshape(sky1,[3750*3750,21])
+        #====final results=============================
+        grndrad1=(planck(trad[:,0],anv)-sky1[:,20]*(1.0+trans[:,0]*(1.0-epsln)))
+        
+        trad11=invplanck(grndrad1/epsln,anv)
+        trad11 = np.reshape(trad11,[3750,3750])
+        trad11[trad11<0]=-9999.
+        
+        outfn = os.path.join(tile_path,"FINAL_NIGHT_LST_%s_T%03d.tif" % (date,tile))
+        trad11 = np.array(trad11, dtype=np.float32)
+    #    trad11.tofile(outfn)
+    
+    #    convertBin2tif(outfn,inUL,ALEXIshape,ALEXIres,'float32',gdal.GDT_Float32)
+        
+        writeArray2Tiff(trad11,ALEXIres,inUL,inProjection,outfn,gdal.GDT_Float32)
+        remove_files = glob.glob(os.path.join(tile_path,"merged*"))
+        for remove_file in remove_files:
+            os.remove(remove_file)
     
 
 def pred_dtrad(tile,year,doy):
