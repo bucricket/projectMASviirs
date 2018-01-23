@@ -2629,13 +2629,13 @@ def runSteps(tile=None,year=None,doy=None):
 
         for tile in tiles:
             createFolders(tile,year,doy)
-#        print("gridding VIIRS data-------------------------->")
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
-#        r = np.array(r)
-#        tiles = np.array(tiles)
-#        tiles = tiles[r]
-#        print("running I5 atmosperic correction------------->")
-#        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
+        print("gridding VIIRS data-------------------------->")
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
+        r = np.array(r)
+        tiles = np.array(tiles)
+        tiles = tiles[r]
+        print("running I5 atmosperic correction------------->")
+        r = Parallel(n_jobs=-1, verbose=5)(delayed(atmosCorrectPython)(tile,year,doy) for tile in tiles)
         print("estimating dtrad and LST2-------------------->")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(pred_dtradV2)(tile,year,doy) for tile in tiles)
 #        print("build RNET trees----------------------------->") # Using MENA region for building trees
