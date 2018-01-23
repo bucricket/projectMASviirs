@@ -2542,6 +2542,34 @@ def getDailyET(tile,year,doy):
     et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
     et_fn = os.path.join(et_path,'FINAL_EDAY_%s_T%03d.tif' % (date,tile))
     writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,et_fn,gdal.GDT_Float32)
+    createPNG(et_fn)
+
+def write_color_table(minVal,maxVal,numColors):
+    interval = (maxVal-minVal)/numColors
+    colorVals = range(int(minVal*100),int(maxVal*100),int(interval*100))
+    fn = os.path.join(os.getcwd(),'color.txt')
+    file = open(fn, "w")
+    file.write("-9999. 255 255 255\n")
+    file.write("%f 255 0 0\n" % (colorVals[0]/100.))
+    file.write("%f 255 69 0\n" % (colorVals[1]/100.))
+    file.write("%f 255 255 0\n" % (colorVals[2]/100.))
+    file.write("%f 0 128 0\n" % (colorVals[3]/100.))
+    file.write("%f 30 144 255\n" % (colorVals[4]/100.))
+    file.write("%f 0 0 139\n" % (colorVals[5]/100.))
+    file.write("%f 75 0 130\n" % (colorVals[6]/100.))
+    file.close()
+
+def createPNG(inTiff):
+    g = gdal.Open(inTiff)
+    data = g.ReadAsArray()
+    minVal = np.nanmin(data)
+    maxVal = np.nanmax(data)
+    write_color_table(minVal,maxVal,7)
+    outPng = inTiff[:-3]+"png"
+    outds = gdal.Open(inTiff)
+    outds = gdal.DEMProcessing(outPng, outds,options=gdal.DEMProcessingOptions(colorFilename="color.txt",
+                                                                                  format="PNG"))
+    outds = None
     
 def createFolders(tile,year,doy):
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
@@ -2656,6 +2684,7 @@ def runSteps(tile=None,year=None,doy=None):
         outds = gdal.BuildVRT(et_vrt, tifs, options=gdal.BuildVRTOptions(srcNodata=-9999.))
         outds = gdal.Translate(et_tif, outds)
         outds = None
+        createPNG(et_tif)
         print("============FINISHED!=========================")
     
 
