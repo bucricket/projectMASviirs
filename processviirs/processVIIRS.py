@@ -2630,7 +2630,7 @@ def runSteps(tile=None,year=None,doy=None):
         for tile in tiles:
             createFolders(tile,year,doy)
         print("gridding VIIRS data-------------------------->")
-        r = Parallel(n_jobs=-1, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
+        r = Parallel(n_jobs=-3, verbose=5)(delayed(gridMergePythonEWA)(tile,year,doy) for tile in tiles)
         r = np.array(r)
         tiles = np.array(tiles)
         tiles = tiles[r]
