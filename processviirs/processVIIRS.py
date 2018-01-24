@@ -2574,7 +2574,7 @@ def createPNG(inTiff):
     subprocess.call('gdaldem color-relief -of PNG %s -alpha %s %s' % (inTiff,textFileName,outPng))
 #    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
     outds = None
-    os.remove(textFileName)
+#    os.remove(textFileName)
     
 def createFolders(tile,year,doy):
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
