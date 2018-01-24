@@ -842,6 +842,8 @@ def gridMergePythonEWA(tile,year,doy):
     ALEXIres = [0.004,0.004]
     latmid = LLlat+7.5
     lonmid = LLlon+7.5
+    x_size = 3750
+    y_size = 3750
     inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
     I5_db_name = os.path.join(data_path,'viirs_database.db')
     
@@ -868,8 +870,6 @@ def gridMergePythonEWA(tile,year,doy):
         orbits = list(set(orbits)) 
         orbitcount = 0
 #        print "number of orbits: %d" % len(orbits)
-        x_size = 3750
-        y_size = 3750
         cloud_stack = np.tile(np.nan,[y_size,x_size])
         cloudview_stack = np.tile(np.nan,[y_size,x_size])
         watermask_stack = np.tile(np.nan,[y_size,x_size])
@@ -1064,8 +1064,7 @@ def gridMergePythonEWA(tile,year,doy):
             description = 'lat lon grid'
     
             swath_def = geometry.SwathDefinition(lons=lon, lats=lat)
-            x_size = 3750
-            y_size = 3750
+
             area_extent = (LLlon,LLlat,URlon,URlat)
             area_def = utils.get_area_def(area_id, description, proj_id, projection,
                                                        x_size, y_size, area_extent)
