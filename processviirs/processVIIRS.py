@@ -2544,7 +2544,7 @@ def getDailyET(tile,year,doy):
     createPNG(et_fn)
 
 def write_color_table(minVal,maxVal,numColors,fileName):
-    interval = (maxVal-minVal)/numColors
+    interval = (maxVal-minVal)/(numColors-1)
     colorVals = range(int(minVal*100),int(maxVal*100),int(interval*100))
     fn = os.path.join(os.getcwd(),fileName)
     file = open(fn, "w")
