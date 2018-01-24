@@ -2570,7 +2570,8 @@ def createPNG(inTiff):
     write_color_table(minVal,maxVal,7,textFileName)
     outPng = inTiff[:-3]+"png"
     outds = gdal.Open(inTiff)
-    outds = gdal.DEMProcessing(outPng,outds,"color-relief",options=gdal.DEMProcessingOptions(colorFilename=textFileName,format="PNG",setAlpha = True))
+#    outds = gdal.DEMProcessing(outPng,outds,"color-relief",options=gdal.DEMProcessingOptions(colorFilename=textFileName,format="PNG",setAlpha = True))
+    subprocess.call('gdaldem color-relief -of PNG %s -alpha %s %s' % (inTiff,textFileName,outPng))
 #    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
     outds = None
     os.remove(textFileName)
