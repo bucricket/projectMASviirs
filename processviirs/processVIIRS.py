@@ -2573,6 +2573,7 @@ def createPNG(inTiff):
     outds = gdal.DEMProcessing(outPng,outds,"color-relief",options=gdal.DEMProcessingOptions(colorFilename=textFileName,format="PNG"))
 #    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
     outds = None
+    os.remove(textFileName)
     
 def createFolders(tile,year,doy):
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
