@@ -2546,6 +2546,7 @@ def getDailyET(tile,year,doy):
 def write_color_table(minVal,maxVal,numColors,fileName):
     interval = (maxVal-minVal)/(numColors-1)
     colorVals = range(int(minVal*100),int(maxVal*100),int(interval*100))
+    blackVal = maxVal+0.1
     fn = os.path.join(os.getcwd(),fileName)
     file = open(fn, "w")
     file.write("-9999. 255 255 255 0\n")
@@ -2556,7 +2557,7 @@ def write_color_table(minVal,maxVal,numColors,fileName):
     file.write("%f 30 144 255\n" % (colorVals[4]/100.))
     file.write("%f 0 0 139\n" % (colorVals[5]/100.))
     file.write("%f 75 0 130\n" % (colorVals[6]/100.))
-    file.write("default black\n")
+    file.write("%f black\n" % blackVal)
     file.write("end\n")
     file.close()
 
