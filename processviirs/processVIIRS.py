@@ -2549,7 +2549,6 @@ def write_color_table(minVal,maxVal,numColors,fileName):
     fn = os.path.join(os.getcwd(),fileName)
     file = open(fn, "w")
     file.write("-9999. 255 255 255 0\n")
-    file.write("default black\n")
     file.write("%f 255 0 0\n" % (colorVals[0]/100.))
     file.write("%f 255 69 0\n" % (colorVals[1]/100.))
     file.write("%f 255 255 0\n" % (colorVals[2]/100.))
@@ -2557,6 +2556,8 @@ def write_color_table(minVal,maxVal,numColors,fileName):
     file.write("%f 30 144 255\n" % (colorVals[4]/100.))
     file.write("%f 0 0 139\n" % (colorVals[5]/100.))
     file.write("%f 75 0 130\n" % (colorVals[6]/100.))
+    file.write("default black\n")
+    file.write("end\n")
     file.close()
 
 def createPNG(inTiff):
