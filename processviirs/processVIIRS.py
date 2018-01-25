@@ -2698,6 +2698,7 @@ def runSteps(tile=None,year=None,doy=None):
         #move to alexi-web...ONLY FOR HCC
         ip = socket.gethostbyname(socket.gethostname())
         if ip == '10.138.17.21':
+            print "ip:%s" % ip
             subprocess.check_output("scp -i alexi_key -r"
                                     "/work/waterforfood/bucricket/PROCESS_VIIRS/TILES/ET/%d/%03d"
                                     "centos@glodet.nebraska.edu:/mnt/alexi-volume/alexi-data/%d"
