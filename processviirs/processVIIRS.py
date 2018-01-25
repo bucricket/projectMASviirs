@@ -2566,7 +2566,7 @@ def createPNG(inTiff):
 #    minVal = np.nanmin(data)
 #    maxVal = np.nanmax(data)
     minVal = 0.01
-    maxVal = 2.0
+    maxVal = 10.0
     textFileName = inTiff[:-4]+"_color.txt"
     write_color_table(minVal,maxVal,7,textFileName)
     outPng = inTiff[:-3]+"png"
@@ -2574,7 +2574,7 @@ def createPNG(inTiff):
 #    outds = gdal.DEMProcessing(outPng,outds,"color-relief",options=gdal.DEMProcessingOptions(colorFilename=textFileName,format="PNG",setAlpha = True))
     subprocess.check_output('gdaldem color-relief -of PNG %s -alpha %s %s' % (inTiff,textFileName,outPng), shell=True)
 #    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
-    outds = None
+#    outds = None
 #    os.remove(textFileName)
     
 def createFolders(tile,year,doy):
