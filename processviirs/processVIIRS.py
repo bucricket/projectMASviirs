@@ -27,6 +27,7 @@ import argparse
 import warnings
 import sqlite3
 import socket
+import paramiko
 #from .downloadData import runProcess
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 
@@ -2541,8 +2542,15 @@ def getDailyET(tile,year,doy):
     
     et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
     et_fn = os.path.join(et_path,'FINAL_EDAY_%s_T%03d.tif' % (date,tile))
+    png_fn = et_fn[:-3]+"png"
     writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,et_fn,gdal.GDT_Float32)
     createPNG(et_fn)
+    #move to alexi-web...ONLY FOR HCC
+    ip = socket.gethostbyname(socket.gethostname())
+    if ip == '10.138.17.21':
+        sftp2alexi_web(et_fn,year)
+        sftp2alexi_web(png_fn,year)
+    
     
     
 
@@ -2574,12 +2582,24 @@ def createPNG(inTiff):
     textFileName = inTiff[:-4]+"_color.txt"
     write_color_table(minVal,maxVal,7,textFileName)
     outPng = inTiff[:-3]+"png"
-    outds = gdal.Open(inTiff)
+#    outds = gdal.Open(inTiff)
 #    outds = gdal.DEMProcessing(outPng,outds,"color-relief",options=gdal.DEMProcessingOptions(colorFilename=textFileName,format="PNG",setAlpha = True))
     subprocess.check_output('gdaldem color-relief -of PNG %s -alpha %s %s' % (inTiff,textFileName,outPng), shell=True)
 #    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
 #    outds = None
 #    os.remove(textFileName)
+
+def sftp2alexi_web(fn,year):
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+    client.connect('glodet.nebraska.edu', username='centos', key_filename='/work/waterforfood/bucricket/PROCESS_VIIRS/alexi_key')
+    # Setup sftp connection and transmit this script
+    #print "copying"
+    sftp = client.open_sftp()
+    outDir = '/mnt/alexi-volume/alexi-data/%d' % year
+    sftp.put(fn, outDir)
+    sftp.close()
     
 def createFolders(tile,year,doy):
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
@@ -2695,11 +2715,12 @@ def runSteps(tile=None,year=None,doy=None):
         outds = gdal.Translate(et_tif, outds)
         outds = None
         createPNG(et_tif)
-        #move to alexi-web...ONLY FOR HCC
-        ip = socket.gethostbyname(socket.gethostname())
-        if ip == '10.138.17.21':
-            print "ip:%s" % ip
-            subprocess.check_output("scp -i alexi_key -r /work/waterforfood/bucricket/PROCESS_VIIRS/TILES/ET/%d/%03d centos@glodet.nebraska.edu:/mnt/alexi-volume/alexi-data/%d" % (year,doy,year), shell=True)
+#        #move to alexi-web...ONLY FOR HCC
+#        ip = socket.gethostbyname(socket.gethostname())
+#        if ip == '10.138.17.21':
+#            print "ip:%s" % ip
+#            import paramiko
+#            subprocess.check_output("scp -i alexi_key -r /work/waterforfood/bucricket/PROCESS_VIIRS/TILES/ET/%d/%03d centos@glodet.nebraska.edu:/mnt/alexi-volume/alexi-data/%d" % (year,doy,year), shell=True)
         print("============FINISHED!=========================")
 
 def main():
