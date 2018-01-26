@@ -11,9 +11,8 @@ import pandas as pd
 import numpy as np
 import glob
 import h5py
-from pyresample import kd_tree, geometry
+from pyresample import geometry
 from pyresample import utils
-import numpy.ma as ma
 from osgeo import gdal,osr
 import shutil
 import gzip
@@ -26,8 +25,6 @@ from pyresample.ewa import ll2cr, fornav
 import argparse
 import warnings
 import sqlite3
-import socket
-import paramiko
 #from .downloadData import runProcess
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 
