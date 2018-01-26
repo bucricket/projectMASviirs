@@ -2545,11 +2545,6 @@ def getDailyET(tile,year,doy):
     png_fn = et_fn[:-3]+"png"
     writeArray2Tiff(ET_24,ALEXI_res,inUL,inProjection,et_fn,gdal.GDT_Float32)
     createPNG(et_fn)
-    #move to alexi-web...ONLY FOR HCC
-    ip = socket.gethostbyname(socket.gethostname())
-    if ip == '10.138.17.21':
-        sftp2alexi_web(et_fn,year)
-        sftp2alexi_web(png_fn,year)
     
     
     
@@ -2588,18 +2583,6 @@ def createPNG(inTiff):
 #    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
 #    outds = None
 #    os.remove(textFileName)
-
-def sftp2alexi_web(fn,year):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    
-    client.connect('glodet.nebraska.edu', username='centos', key_filename='/work/waterforfood/bucricket/PROCESS_VIIRS/alexi_key')
-    # Setup sftp connection and transmit this script
-    #print "copying"
-    sftp = client.open_sftp()
-    outDir = '/mnt/alexi-volume/alexi-data/%d' % year
-    sftp.put(fn, outDir)
-    sftp.close()
     
 def createFolders(tile,year,doy):
     fsun_trees_tile_ctl = os.path.join(fsun_trees_path,'tiles_ctl')
