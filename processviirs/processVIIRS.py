@@ -2688,22 +2688,6 @@ def runSteps(tile=None,year=None,doy=None):
         print("making ET------------------------------------>")
         r = Parallel(n_jobs=-1, verbose=5)(delayed(getDailyET)(tile,year,doy) for tile in tiles)
 #        cleanup(year,doy,tiles)
-        print("making regional mosaic----------------------->")
-        et_path = os.path.join(tile_base_path,'ET','%d' % year, '%03d' % doy)
-        date = '%d%03d' % (year,doy)
-        tifs = glob.glob(os.path.join(et_path,"*.tif"))
-        et_vrt = os.path.join(et_path,'FINAL_EDAY_%s_mosaic.vrt' % date)
-        et_tif = os.path.join(et_path,'FINAL_EDAY_%s_mosaic.tif' % date)
-        outds = gdal.BuildVRT(et_vrt, tifs, options=gdal.BuildVRTOptions(srcNodata=-9999.))
-        outds = gdal.Translate(et_tif, outds)
-        outds = None
-        createPNG(et_tif)
-#        #move to alexi-web...ONLY FOR HCC
-#        ip = socket.gethostbyname(socket.gethostname())
-#        if ip == '10.138.17.21':
-#            print "ip:%s" % ip
-#            import paramiko
-#            subprocess.check_output("scp -i alexi_key -r /work/waterforfood/bucricket/PROCESS_VIIRS/TILES/ET/%d/%03d centos@glodet.nebraska.edu:/mnt/alexi-volume/alexi-data/%d" % (year,doy,year), shell=True)
         print("============FINISHED!=========================")
 
 def main():
