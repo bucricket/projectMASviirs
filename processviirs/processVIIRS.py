@@ -2112,178 +2112,178 @@ def pred_dtradV2(tile,year,doy):
         lst2 = np.array(lst2,dtype='Float32')
         writeArray2Tiff(lst2,ALEXIres,inUL,inProjection,lst2_fn,gdal.GDT_Float32)    
     
-def buildRNETtrees(year,doy):
-    dtimedates = np.array(range(1,366,7))
-    r7day = dtimedates[dtimedates>=doy][0]
-    riseddd="%d%03d" %(year,r7day)
-    halfdeg_sizeArr = 900*1600
-
-    #========process insol====================================================
-    srcfn = os.path.join(static_path,'INSOL','deg05','insol55_2011%03d.tif' % doy)
-    g = gdal.Open(srcfn,GA_ReadOnly)
-    insol= g.ReadAsArray(200,0,1600,900) # subset to match the -20 -> 60 deg east-west subset from FSUN
-    insol = np.reshape(insol,[halfdeg_sizeArr])
-
-    #======process RNET========================================================
-#    srcfn = os.path.join(static_path,'5KM','RNET','RNET%s.dat' % riseddd)
-#    srcfn = os.path.join(static_path,'5KM','RNET','RNET2015%03d.dat' % r7day)
-    srcfn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_AVG*%s.tif" % r7day))[0]
-#    outfn = srcfn[:-4]+'subset.tif'
-#    out = subprocess.check_output('gdal_translate -of GTiff -projwin -30 45 60 0 -tr 0.05 0.05 %s %s' % (srcfn,outfn), shell=True)
-    g = gdal.Open(srcfn,GA_ReadOnly)
-    rnet= g.ReadAsArray(3201,901,1600,900)
-    rnet = np.reshape(rnet,[halfdeg_sizeArr])
-    #======process albedo======================================================
-    srcfn = os.path.join(static_path,'ALBEDO','ALBEDO.tif')
-    g = gdal.Open(srcfn,GA_ReadOnly)
-    albedo = g.ReadAsArray(200,0,1600,900)
-    albedo = np.reshape(albedo,[halfdeg_sizeArr])
-    
-    #=====process LST2=========================================================
-    srcPath = os.path.join(tile_base_path,'LST2','%03d' % doy)
-    tifs = glob.glob(os.path.join(srcPath,'FINAL_DAY_LST_TIME2*.tif'))
-    outfn = os.path.join(srcPath,'LST2.vrt')
-    outfn05 = outfn[:-4]+'05.tif'
-    outds = gdal.BuildVRT(outfn, tifs, options=gdal.BuildVRTOptions(srcNodata=-9999.))
-    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
-    outds = None
-#    subprocess.check_output('gdalbuildvrt %s %s' % (outfn, searchPath), shell=True)
-#    out = subprocess.check_output('gdal_translate -of GTiff -tr 0.05 0.05 %s %s' % (outfn,outfn05), shell=True)
-    g = gdal.Open(outfn05,GA_ReadOnly)
-    lst2 = g.ReadAsArray(200,0,1600,900)
-    lst2 = np.reshape(lst2,[halfdeg_sizeArr])
-    #====process LWDN==========================================================
-    time = get_rise55(year,doy,86)
-    grab_time = getGrabTime(int(time)*100)
-    hr,forecastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
-    cfsr_date = "%d%03d" % (year,cfsr_doy)
-    if (grab_time)==2400:
-        grab_time = 0000
-    srcfn = os.path.join(static_path,'CFSR','%d' % year,'%03d' % cfsr_doy,'sfc_lwdn_%s_%02d00.dat' % (cfsr_date,grab_time/100))
-    lwdn25 = np.fromfile(srcfn, dtype=np.float32)
-    lwdn25 = np.flipud(lwdn25.reshape([720, 1440]))
-    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
-    tif_fn = srcfn[:-4]+'.tif'
-    if not os.path.exists(tif_fn):
-        writeArray2Tiff(lwdn25,[0.25,0.25],[-180.,90.],inProjection,tif_fn,gdal.GDT_Float32)
-    outfn05 = tif_fn[:-4]+'05.tif'
-#    outfn = os.path.join(outPath,tif_fn.split(os.sep)[-1])
-    outds = gdal.Open(tif_fn)
-    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05,
-                                                                        projWin=[-20,45,60,0]))
-    outds = None
-#    out = subprocess.check_output('gdal_translate -of GTiff -projwin -20 45 60 0 -tr 0.05 0.05 %s %s' % (tif_fn,outfn), shell=True)
-    g = gdal.Open(outfn05,GA_ReadOnly)
-    lwdn = g.ReadAsArray()
-    lwdn = np.reshape(lwdn,[halfdeg_sizeArr])
-    
-    #==========create fstem.data for cubist====================================
-    outDict = {'rnet': rnet, 'albedo':albedo, 'insol':insol, 'lwdn': lwdn, 'lst2':lst2}
-    inDF = pd.DataFrame.from_dict(outDict)
-    outDF = inDF.loc[(inDF["rnet"] > 0.0) & (inDF["albedo"] > 0.0) & 
-                (inDF["insol"] > 0.0) & (inDF["lwdn"] > 0.0) &
-                (inDF["lst2"] > 0.0), ["rnet","albedo","insol","lwdn","lst2"]]
-    calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl')
-#    if not os.path.exists(calc_rnet_tile_ctl):
-#        os.makedirs(calc_rnet_tile_ctl) 
-    file_data = os.path.join(calc_rnet_tile_ctl,'rnet.data')
-    outDF.to_csv(file_data , header=True, index=False,columns=["rnet",
-                                        "albedo","insol","lwdn","lst2"])
-    file_names = os.path.join(calc_rnet_tile_ctl,'rnet.names')
-    get_tiles_fstem_names(file_names)
-    
-    #====run cubist============================================================
-#    print("running cubist...")
-    cubist_name = os.path.join(calc_rnet_tile_ctl,'rnet')
-    rnet_cub_out = subprocess.check_output("cubist -f %s -u -a -r 20" % cubist_name, shell=True)
-    return rnet_cub_out
-
-def getRNETfromTrees(tile,year,doy,rnet_cub_out):
-    calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl')
-    cubist_name = os.path.join(calc_rnet_tile_ctl,'rnet.model')
-    LLlat,LLlon = tile2latlon(tile)
-    URlat = LLlat+15.
-    URlon = LLlon+15.
-    inUL = [LLlon,URlat]
-    ALEXI_shape = [3750,3750]
-    ALEXI_res = [0.004,0.004] 
-    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
-    date = '%d%03d' % (year,doy)
-    tile_path = os.path.join(tile_base_path,"T%03d" % tile)
-    #====open INSOL =============================================
-    srcfn = os.path.join(static_path,'INSOL','deg004','insol55_2011%03d.tif' % doy)
-    outfn004 = srcfn[:-4]+'_T%03d.tif' % tile
-    subset = [LLlon,URlat,URlon,LLlat]
-    outds = gdal.Open(srcfn)
-    outds = gdal.Translate(outfn004, outds,options=gdal.TranslateOptions(xRes=0.004,yRes=0.004,
-                                                                        projWin=subset))
-    outds = None
-#    out = subprocess.check_output('gdalwarp -overwrite -of GTiff -te %f %f %f %f -tr 0.004 0.004 %s %s' % (LLlon,LLlat,URlon,URlat,srcfn,outfn004), shell=True)
-    g = gdal.Open(outfn004,GA_ReadOnly)
-    insol_viirs= g.ReadAsArray()
-    insol_viirs = np.reshape(insol_viirs,[3750*3750])
-    
-    #======process albedo======================================================
-    albedo_fn = os.path.join(static_path,'ALBEDO','ALBEDO_T%03d.dat' % tile)
-    albedo = np.fromfile(albedo_fn, dtype=np.float32)
-    albedo = np.reshape(albedo,[3750*3750])
-    
-    #=====process LST2=========================================================
-#    lst_fn = os.path.join(rnet_tile_path,'LST2_%03d_%s.dat' % (tile,date))
-    lst2_tile_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
-    lst_fn = os.path.join(lst2_tile_path,
-                            "FINAL_DAY_LST_TIME2_%s_T%03d.tif" % ( date, tile))
-    
-#    lst = np.fromfile(lst_fn, dtype=np.float32)
-    g = gdal.Open(lst_fn,GA_ReadOnly)
-    lst= g.ReadAsArray()
-    lst2 = np.reshape(lst,[3750*3750])
-    
-    #====process LWDN==========================================================
-    time = get_rise55(year,doy,tile)
-    grab_time = getGrabTime(int(time)*100)
-    hr,forecastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
-    cfsr_date = "%d%03d" % (year,cfsr_doy)
-    if (grab_time)==2400:
-        grab_time = 0000
-    srcfn = os.path.join(static_path,'CFSR','%d' % year,'%03d' % cfsr_doy,'sfc_lwdn_%s_%02d00.dat' % (cfsr_date,grab_time/100))
-    lwdn25 = np.fromfile(srcfn, dtype=np.float32)
-    lwdn25 = np.flipud(lwdn25.reshape([720, 1440]))
-    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
-    tif_fn = srcfn[:-4]+'.tif'
-    if not os.path.exists(tif_fn):
-        writeArray2Tiff(lwdn25,[0.25,0.25],[-180.,90.],inProjection,tif_fn,gdal.GDT_Float32)
-    outfn004 = tif_fn[:-4]+'_T%03d.tif' % tile
-    outds = gdal.Open(tif_fn)
-    outds = gdal.Translate(outfn004, outds,options=gdal.TranslateOptions(xRes=0.004,yRes=0.004,
-                                                                        projWin=subset))
-    outds = None
-#    out = subprocess.check_output('gdal_translate -of GTiff -projwin %f %f %f %f -tr 0.004 0.004 %s %s' % (LLlon,URlat,URlon,LLlat,tif_fn,outfn), shell=True)
-    g = gdal.Open(outfn004,GA_ReadOnly)
-    lwdn = g.ReadAsArray()
-    lwdn_viirs = np.reshape(lwdn,[3750*3750])
-    #=======get the final_rnet=================================================
-    cubDict = {'albedo':albedo, 'insol':insol_viirs, 'lwdn': lwdn_viirs, 'lst2':lst2}
-    cubDF = pd.DataFrame.from_dict(cubDict)
-    rnet_out = readCubistOut(rnet_cub_out,cubDF)
-#    rnet_out = get_results_cubist_model(cubist_name,cubDF)
-    rnet_out = np.reshape(rnet_out, [3750,3750])
-    rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
-#    if not os.path.exists(rnet_tile):
-#        os.makedirs(rnet_tile)
-    finalrnet_fn = os.path.join(rnet_tile,'FINAL_RNET_%s_T%03d.tif' % (date,tile))
-    rnet_out = np.array(rnet_out,dtype='Float32')
-    writeArray2Tiff(rnet_out,ALEXI_res,inUL,inProjection,finalrnet_fn,gdal.GDT_Float32)
-#    rnet_out.tofile(finalrnet_fn)
-#    convertBin2tif(finalrnet_fn,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
-    
-    #======TESTING=============================================================
-    testing_path = os.path.join(tile_base_path,'RNET','%03d' % doy)
-#    if not os.path.exists(testing_path):
-#        os.makedirs(testing_path)
-    testing_fn = os.path.join(testing_path,'FINAL_RNET_%s_T%03d.tif' % (date,tile))
-    shutil.copyfile(finalrnet_fn,testing_fn)
-#    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32) 
+#def buildRNETtrees(year,doy):
+#    dtimedates = np.array(range(1,366,7))
+#    r7day = dtimedates[dtimedates>=doy][0]
+#    riseddd="%d%03d" %(year,r7day)
+#    halfdeg_sizeArr = 900*1600
+#
+#    #========process insol====================================================
+#    srcfn = os.path.join(static_path,'INSOL','deg05','insol55_2011%03d.tif' % doy)
+#    g = gdal.Open(srcfn,GA_ReadOnly)
+#    insol= g.ReadAsArray(200,0,1600,900) # subset to match the -20 -> 60 deg east-west subset from FSUN
+#    insol = np.reshape(insol,[halfdeg_sizeArr])
+#
+#    #======process RNET========================================================
+##    srcfn = os.path.join(static_path,'5KM','RNET','RNET%s.dat' % riseddd)
+##    srcfn = os.path.join(static_path,'5KM','RNET','RNET2015%03d.dat' % r7day)
+#    srcfn = glob.glob(os.path.join(static_path,"5KM","RNET","RNET_AVG*%s.tif" % r7day))[0]
+##    outfn = srcfn[:-4]+'subset.tif'
+##    out = subprocess.check_output('gdal_translate -of GTiff -projwin -30 45 60 0 -tr 0.05 0.05 %s %s' % (srcfn,outfn), shell=True)
+#    g = gdal.Open(srcfn,GA_ReadOnly)
+#    rnet= g.ReadAsArray(3201,901,1600,900)
+#    rnet = np.reshape(rnet,[halfdeg_sizeArr])
+#    #======process albedo======================================================
+#    srcfn = os.path.join(static_path,'ALBEDO','ALBEDO.tif')
+#    g = gdal.Open(srcfn,GA_ReadOnly)
+#    albedo = g.ReadAsArray(200,0,1600,900)
+#    albedo = np.reshape(albedo,[halfdeg_sizeArr])
+#    
+#    #=====process LST2=========================================================
+#    srcPath = os.path.join(tile_base_path,'LST2','%03d' % doy)
+#    tifs = glob.glob(os.path.join(srcPath,'FINAL_DAY_LST_TIME2*.tif'))
+#    outfn = os.path.join(srcPath,'LST2.vrt')
+#    outfn05 = outfn[:-4]+'05.tif'
+#    outds = gdal.BuildVRT(outfn, tifs, options=gdal.BuildVRTOptions(srcNodata=-9999.))
+#    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05))
+#    outds = None
+##    subprocess.check_output('gdalbuildvrt %s %s' % (outfn, searchPath), shell=True)
+##    out = subprocess.check_output('gdal_translate -of GTiff -tr 0.05 0.05 %s %s' % (outfn,outfn05), shell=True)
+#    g = gdal.Open(outfn05,GA_ReadOnly)
+#    lst2 = g.ReadAsArray(200,0,1600,900)
+#    lst2 = np.reshape(lst2,[halfdeg_sizeArr])
+#    #====process LWDN==========================================================
+#    time = get_rise55(year,doy,86)
+#    grab_time = getGrabTime(int(time)*100)
+#    hr,forecastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+#    cfsr_date = "%d%03d" % (year,cfsr_doy)
+#    if (grab_time)==2400:
+#        grab_time = 0000
+#    srcfn = os.path.join(static_path,'CFSR','%d' % year,'%03d' % cfsr_doy,'sfc_lwdn_%s_%02d00.dat' % (cfsr_date,grab_time/100))
+#    lwdn25 = np.fromfile(srcfn, dtype=np.float32)
+#    lwdn25 = np.flipud(lwdn25.reshape([720, 1440]))
+#    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+#    tif_fn = srcfn[:-4]+'.tif'
+#    if not os.path.exists(tif_fn):
+#        writeArray2Tiff(lwdn25,[0.25,0.25],[-180.,90.],inProjection,tif_fn,gdal.GDT_Float32)
+#    outfn05 = tif_fn[:-4]+'05.tif'
+##    outfn = os.path.join(outPath,tif_fn.split(os.sep)[-1])
+#    outds = gdal.Open(tif_fn)
+#    outds = gdal.Translate(outfn05, outds,options=gdal.TranslateOptions(xRes=0.05,yRes=0.05,
+#                                                                        projWin=[-20,45,60,0]))
+#    outds = None
+##    out = subprocess.check_output('gdal_translate -of GTiff -projwin -20 45 60 0 -tr 0.05 0.05 %s %s' % (tif_fn,outfn), shell=True)
+#    g = gdal.Open(outfn05,GA_ReadOnly)
+#    lwdn = g.ReadAsArray()
+#    lwdn = np.reshape(lwdn,[halfdeg_sizeArr])
+#    
+#    #==========create fstem.data for cubist====================================
+#    outDict = {'rnet': rnet, 'albedo':albedo, 'insol':insol, 'lwdn': lwdn, 'lst2':lst2}
+#    inDF = pd.DataFrame.from_dict(outDict)
+#    outDF = inDF.loc[(inDF["rnet"] > 0.0) & (inDF["albedo"] > 0.0) & 
+#                (inDF["insol"] > 0.0) & (inDF["lwdn"] > 0.0) &
+#                (inDF["lst2"] > 0.0), ["rnet","albedo","insol","lwdn","lst2"]]
+#    calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl')
+##    if not os.path.exists(calc_rnet_tile_ctl):
+##        os.makedirs(calc_rnet_tile_ctl) 
+#    file_data = os.path.join(calc_rnet_tile_ctl,'rnet.data')
+#    outDF.to_csv(file_data , header=True, index=False,columns=["rnet",
+#                                        "albedo","insol","lwdn","lst2"])
+#    file_names = os.path.join(calc_rnet_tile_ctl,'rnet.names')
+#    get_tiles_fstem_names(file_names)
+#    
+#    #====run cubist============================================================
+##    print("running cubist...")
+#    cubist_name = os.path.join(calc_rnet_tile_ctl,'rnet')
+#    rnet_cub_out = subprocess.check_output("cubist -f %s -u -a -r 20" % cubist_name, shell=True)
+#    return rnet_cub_out
+#
+#def getRNETfromTrees(tile,year,doy,rnet_cub_out):
+#    calc_rnet_tile_ctl = os.path.join(calc_rnet_path,'tiles_ctl')
+#    cubist_name = os.path.join(calc_rnet_tile_ctl,'rnet.model')
+#    LLlat,LLlon = tile2latlon(tile)
+#    URlat = LLlat+15.
+#    URlon = LLlon+15.
+#    inUL = [LLlon,URlat]
+#    ALEXI_shape = [3750,3750]
+#    ALEXI_res = [0.004,0.004] 
+#    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+#    date = '%d%03d' % (year,doy)
+#    tile_path = os.path.join(tile_base_path,"T%03d" % tile)
+#    #====open INSOL =============================================
+#    srcfn = os.path.join(static_path,'INSOL','deg004','insol55_2011%03d.tif' % doy)
+#    outfn004 = srcfn[:-4]+'_T%03d.tif' % tile
+#    subset = [LLlon,URlat,URlon,LLlat]
+#    outds = gdal.Open(srcfn)
+#    outds = gdal.Translate(outfn004, outds,options=gdal.TranslateOptions(xRes=0.004,yRes=0.004,
+#                                                                        projWin=subset))
+#    outds = None
+##    out = subprocess.check_output('gdalwarp -overwrite -of GTiff -te %f %f %f %f -tr 0.004 0.004 %s %s' % (LLlon,LLlat,URlon,URlat,srcfn,outfn004), shell=True)
+#    g = gdal.Open(outfn004,GA_ReadOnly)
+#    insol_viirs= g.ReadAsArray()
+#    insol_viirs = np.reshape(insol_viirs,[3750*3750])
+#    
+#    #======process albedo======================================================
+#    albedo_fn = os.path.join(static_path,'ALBEDO','ALBEDO_T%03d.dat' % tile)
+#    albedo = np.fromfile(albedo_fn, dtype=np.float32)
+#    albedo = np.reshape(albedo,[3750*3750])
+#    
+#    #=====process LST2=========================================================
+##    lst_fn = os.path.join(rnet_tile_path,'LST2_%03d_%s.dat' % (tile,date))
+#    lst2_tile_path = os.path.join(tile_base_path,'LST2','%03d' % doy)
+#    lst_fn = os.path.join(lst2_tile_path,
+#                            "FINAL_DAY_LST_TIME2_%s_T%03d.tif" % ( date, tile))
+#    
+##    lst = np.fromfile(lst_fn, dtype=np.float32)
+#    g = gdal.Open(lst_fn,GA_ReadOnly)
+#    lst= g.ReadAsArray()
+#    lst2 = np.reshape(lst,[3750*3750])
+#    
+#    #====process LWDN==========================================================
+#    time = get_rise55(year,doy,tile)
+#    grab_time = getGrabTime(int(time)*100)
+#    hr,forecastHR,cfsr_doy = getGrabTimeInv(grab_time/100,doy)
+#    cfsr_date = "%d%03d" % (year,cfsr_doy)
+#    if (grab_time)==2400:
+#        grab_time = 0000
+#    srcfn = os.path.join(static_path,'CFSR','%d' % year,'%03d' % cfsr_doy,'sfc_lwdn_%s_%02d00.dat' % (cfsr_date,grab_time/100))
+#    lwdn25 = np.fromfile(srcfn, dtype=np.float32)
+#    lwdn25 = np.flipud(lwdn25.reshape([720, 1440]))
+#    inProjection = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+#    tif_fn = srcfn[:-4]+'.tif'
+#    if not os.path.exists(tif_fn):
+#        writeArray2Tiff(lwdn25,[0.25,0.25],[-180.,90.],inProjection,tif_fn,gdal.GDT_Float32)
+#    outfn004 = tif_fn[:-4]+'_T%03d.tif' % tile
+#    outds = gdal.Open(tif_fn)
+#    outds = gdal.Translate(outfn004, outds,options=gdal.TranslateOptions(xRes=0.004,yRes=0.004,
+#                                                                        projWin=subset))
+#    outds = None
+##    out = subprocess.check_output('gdal_translate -of GTiff -projwin %f %f %f %f -tr 0.004 0.004 %s %s' % (LLlon,URlat,URlon,LLlat,tif_fn,outfn), shell=True)
+#    g = gdal.Open(outfn004,GA_ReadOnly)
+#    lwdn = g.ReadAsArray()
+#    lwdn_viirs = np.reshape(lwdn,[3750*3750])
+#    #=======get the final_rnet=================================================
+#    cubDict = {'albedo':albedo, 'insol':insol_viirs, 'lwdn': lwdn_viirs, 'lst2':lst2}
+#    cubDF = pd.DataFrame.from_dict(cubDict)
+#    rnet_out = readCubistOut(rnet_cub_out,cubDF)
+##    rnet_out = get_results_cubist_model(cubist_name,cubDF)
+#    rnet_out = np.reshape(rnet_out, [3750,3750])
+#    rnet_tile = os.path.join(tile_base_path,'T%03d' % tile)
+##    if not os.path.exists(rnet_tile):
+##        os.makedirs(rnet_tile)
+#    finalrnet_fn = os.path.join(rnet_tile,'FINAL_RNET_%s_T%03d.tif' % (date,tile))
+#    rnet_out = np.array(rnet_out,dtype='Float32')
+#    writeArray2Tiff(rnet_out,ALEXI_res,inUL,inProjection,finalrnet_fn,gdal.GDT_Float32)
+##    rnet_out.tofile(finalrnet_fn)
+##    convertBin2tif(finalrnet_fn,inUL,ALEXI_shape,ALEXI_res,'float32',gdal.GDT_Float32)
+#    
+#    #======TESTING=============================================================
+#    testing_path = os.path.join(tile_base_path,'RNET','%03d' % doy)
+##    if not os.path.exists(testing_path):
+##        os.makedirs(testing_path)
+#    testing_fn = os.path.join(testing_path,'FINAL_RNET_%s_T%03d.tif' % (date,tile))
+#    shutil.copyfile(finalrnet_fn,testing_fn)
+##    convertBin2tif(testing_fn,inUL,ALEXI_shape,ALEXI_res,np.float32,gdal.GDT_Float32) 
      
     
     
